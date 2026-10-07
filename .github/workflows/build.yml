@@ -52,6 +52,13 @@ jobs:
       - name: Validate playbook structure
         run: python3 scripts/validate-playbook.py --strict --stats
 
+      - name: Runtime dry run against the packaged engine rules
+        run: |
+          python3 scripts/ame-dryrun.py --selftest
+          bash scripts/build-playbook.sh
+          python3 scripts/ame-dryrun.py --build 26300
+          python3 scripts/ame-dryrun.py --build 26100
+
       - name: Build .apbx and release folder
         run: bash scripts/build-playbook.sh
 

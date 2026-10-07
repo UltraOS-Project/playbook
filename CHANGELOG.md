@@ -2,6 +2,47 @@
 
 All notable changes to UltraOS are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [semantic versioning](https://semver.org/) with the caveat that "breaking" for a playbook means "an install made by an older version may need attention before upgrading" — the wizard's own upgrade flow (`Upgrade`, not *Run again*) handles version-to-version migration.
 
+## [1.0.1] — 2026-10-08
+
+Hotfix release. v1.0.0 failed to load in AME Wizard with
+`RadioPage with a TopLine and BottomLine must not have more than 2 options.`
+(found by a user at runtime — a class of bug our build pipeline could not see,
+because the page-layout rules live in the wizard engine, not in any public spec).
+
+### Fixed — playbook load failures (engine rule violations)
+
+- **Preset `RadioPage`** had 3 options *and* both a `TopLine` and `BottomLine`.
+  The engine caps such pages at 2 options (3 are allowed with at most one line).
+  The preset guidance text moved into the page `Description`; the "What does
+  each preset change?" link stays as the single `BottomLine`.
+- **Browser `RadioImagePage` was self-closing** — no `<Options>` at all, which
+  would have crashed the engine with a `NullReferenceException` in
+  `RadioImagePage.Validate()` right after the first fix. It now defines the
+  `None` choice plus Brave / Firefox / LibreWolf with engine-legal gradient
+  colors (mirrors the ReviOS/Atlas page grammar).
+- **`<UpgradableFrom>none</UpgradableFrom>`** is not a legal value (only
+  `any`, a version like `1.0.0`, or a range like `1.0.0-2.0.0`) — it is now
+  `any`, matching ReviOS and allowing re-runs over an existing install.
+- **Advanced-options `CheckboxPage`** had 4 options with both lines (engine
+  cap: 4 options only with no lines). The trade-off warning moved into the
+  page `Description`, matching the ReviOS-style no-line checkbox pages.
+
+### Added — runtime testing against the real engine rules
+
+- **`scripts/ame-dryrun.py`** — a runtime dry-run harness that ports the AME
+  Wizard's *actual* load pipeline rule-for-rule (sources:
+  `AmeliorationUtil.DeserializePlaybook`, `XmlDeserializer.ReadXml` strictness,
+  `Playbook.cs` page/playbook validation, `PlaybookParser` tag map, action
+  field schemas, `ParseActions` option/build/oobe/iso gating). Stages:
+  container (ZipCrypto "malte" + CRC + root layout) → strict `playbook.conf`
+  load → page/playbook validation → YAML pipeline (tags, fields, enums,
+  `!task` graph, option refs) → file references → execution simulation for
+  Safe/Balanced/Extreme/browser/advanced scenarios. `--selftest` proves the
+  harness reproduces the v1.0.0 load failure verbatim. CI and the local build
+  both run it against the packaged `.apbx`.
+- All five simulated fresh-install plans now resolve end-to-end (Safe 150,
+  Balanced 333, Extreme 403 actions on build 26300).
+
 ## [1.0.0] — 2026-10-08
 
 Initial public release — a GPL-3.0 playbook targeting Windows 11 26H2 (build 26300, the Windows 11 2026 Update) as its primary platform, alongside 25H2 (26200) and 24H2 (26100), on both Home and Pro. It fills the gap left by Atlas (24H2/25H2 only) and ReviOS (26H2 supported, but under a CC BY-SA playbook license).
