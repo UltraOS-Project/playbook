@@ -1,5 +1,5 @@
 # RESTOREPOINT.ps1 - UltraOS pre-install System Restore point (rollback layer L0)
-# UltraOS v1.0.0 - GPL-3.0 - https://github.com/UltraOS-Project/UltraOS
+# UltraOS v1.0.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 #
 # Provenance: research/execution-performance-packaging.md section 5.2 (L0 design).
 # Unlike Atlas (which deletes all restore points in CLEANUP.ps1), UltraOS creates
@@ -22,7 +22,7 @@ $ErrorActionPreference = 'Continue'
 
 # PS 5.1's Checkpoint-Computer has no -CheckpointName parameter; -Description IS
 # the name shown in the System Restore UI (the engine calls it "checkpoint name").
-$checkpointName = 'UltraOS v1.0.0'
+$checkpointName = 'UltraOS v1.0.1'
 
 $systemDrive = "$env:SystemDrive" + "\"
 Write-Output "RESTOREPOINT: ensuring System Protection is enabled on $systemDrive"

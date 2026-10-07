@@ -7,7 +7,7 @@ UltraOS is built and packaged entirely on Linux — no Windows machine is requir
 You need `git`, `python3` (3.8+), `pyyaml`, and `zip`/`unzip`. Everything else is self-contained.
 
 ```bash
-git clone https://github.com/UltraOS-Project/UltraOS.git
+git clone https://github.com/UltraOS-Project/playbook.git
 cd UltraOS
 pip install --user pyyaml          # the only Python dependency
 

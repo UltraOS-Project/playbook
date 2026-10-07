@@ -33,7 +33,7 @@ This is the step people ask about most, so here it is in full, up front. UltraOS
 
 UltraOS is a playbook for **AME Wizard**, the open ecosystem playbook runner maintained by Ameliorated — the same wizard used by AtlasOS and ReviOS. Download it from the official site: **<https://ameliorated.io>** (the site now lives under amelabs.net; the old address redirects). Install it like any Windows application. If your browser or Defender flags the download, that is a false positive on a password-protected archive — the wizard's documentation explains how to allow it.
 
-Next, download the UltraOS playbook (an `.apbx` file) from the [UltraOS releases](https://github.com/UltraOS-Project/UltraOS/releases). If your download ships with a `SHA256SUMS.txt`, verify the hash before running (see [README-FIRST.txt](../src/release-zip/README-FIRST.txt) for the exact commands). You do not need to extract or unzip anything — the wizard opens the file directly.
+Next, download the UltraOS playbook (an `.apbx` file) from the [UltraOS releases](https://github.com/UltraOS-Project/playbook/releases). If your download ships with a `SHA256SUMS.txt`, verify the hash before running (see [README-FIRST.txt](../src/release-zip/README-FIRST.txt) for the exact commands). You do not need to extract or unzip anything — the wizard opens the file directly.
 
 ## Step 2 — Open the playbook and walk the wizard pages
 

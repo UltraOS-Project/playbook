@@ -1,6 +1,6 @@
 @echo off
 :: Undo.cmd - self-elevating wrapper for UNDO.ps1 (UltraOS partial rollback)
-:: UltraOS v1.0.0 - GPL-3.0 - https://github.com/UltraOS-Project/UltraOS
+:: UltraOS v1.0.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 :: Self-elevation pattern written for UltraOS (generic Windows idiom; the Atlas
 :: playbook's self-elevating .cmd files, GPL-3.0, served as the reference).
 ::

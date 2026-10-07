@@ -1,7 +1,7 @@
 # UltraOS Architecture — v1.0.0 (LOCKED DESIGN)
 **Main agent synthesis of 10 research dossiers. Build fleet: follow this document exactly. Deviations require a worklog note.**
 
-Identity: UltraOS v1.0.0 — GPL-3.0 Windows optimization playbook for **AME Wizard** (.apbx)
+Identity: UltraOS v1.0.1 — GPL-3.0 Windows optimization playbook for **AME Wizard** (.apbx)
 Target builds: **26300 (26H2, primary)** + 26200 (25H2) + 26100 (24H2) — all share the servicing branch (T1-d2 verified)
 Editions: Home + Pro (registry/policy only, no GPO-only mechanisms without registry equivalents)
 Design: Hybrid — Atlas-grade performance rigor + Revi-style daily-use balance, with Safe/Balanced/Extreme presets, opt-in extras, rollback + post-run report, faster execution.
@@ -32,12 +32,12 @@ ultraos/
 **.apbx = `zip -P malte` of src/playbook/* at archive root** (files at top level, NOT nested in a folder). Entry = `Configuration/main.yml`.
 
 ## 2. playbook.conf (LOCKED values)
-- Name: `UltraOS` · Username: `UltraOS` · Title: `UltraOS v1.0.0` · Version: `1.0.0`
+- Name: `UltraOS` · Username: `UltraOS` · Title: `UltraOS v1.0.1` · Version: `1.0.0`
 - ShortDescription: `UltraOS Playbook for Windows 11 24H2–26H2` · ProductCode: `64`
 - SupportedBuilds: `26100`, `26200`, `26300`
 - Requirements: `DefenderToggled`, `NoAntivirus`, `Internet`, `NoPendingUpdates`, `PluggedIn` (same set Atlas+Revi both use — proven; NO UCPDDisabled because UltraOS never writes UserChoice/file-association keys)
 - UniqueId: `00000000-0000-4000-556c-7472614f5321` · EstimatedMinutes: `8` · Overhaul: `true` · UseKernelDriver: `false` · AllowUnsupportedUpgrades: `false` · SupportsISO: `true`
-- Git: `https://github.com/UltraOS-Project/UltraOS` (placeholder) · Website placeholder · InstallGuide: docs/INSTALL.md anchor
+- Git: `https://github.com/UltraOS-Project/playbook` (public source repo, Revi-style) · Website: org home · InstallGuide: docs/INSTALL.md anchor
 - ISO: DisableBitLocker true, DisableHardwareRequirements true · OOBE: 3 BulletPoints (Rocket Performance / Privacy Privacy / Lock Control), Internet `Force`
 - ProgressText: concise, mentions report location `C:\Windows\UltraOS\install-report.html`
 - **FeaturePages (5, in order):**

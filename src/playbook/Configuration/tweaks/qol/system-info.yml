@@ -30,7 +30,7 @@ actions:
   - !registryValue:
     path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
     value: 'SupportURL'
-    data: 'https://github.com/UltraOS-Project/UltraOS'
+    data: 'https://github.com/UltraOS-Project/playbook'
     type: REG_SZ
 
   # Shows as 'Organization' in winver (About Windows) - same branding string as Model.

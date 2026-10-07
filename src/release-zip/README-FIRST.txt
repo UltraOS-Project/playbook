@@ -6,7 +6,7 @@
 You just downloaded UltraOS. This file gets you from here to a
 finished install in about ten minutes. The full guide lives at:
 
-    https://github.com/UltraOS-Project/UltraOS/blob/main/docs/INSTALL.md
+    https://github.com/UltraOS-Project/playbook/blob/main/docs/INSTALL.md
 
 
 WHAT'S IN THIS DOWNLOAD
@@ -79,7 +79,7 @@ content is identical to 1.0.0.
 
 LINKS
 -----
-- Documentation .... https://github.com/UltraOS-Project/UltraOS
+- Documentation .... https://github.com/UltraOS-Project/playbook
 - Install guide .... docs/INSTALL.md in this repository
 - Troubleshooting .. docs/TROUBLESHOOTING.md
 - License .......... GPL-3.0 (see LICENSE) - free to use, study,
