@@ -29,6 +29,9 @@ credited in-line in the source files where they appear:
 
 - ReviOS / MeetRevision playbook (https://github.com/MeetRevision/playbook,
   CC BY-SA 4.0) - engine-native browser flow, option UX, honest warning copy.
+- Win11Debloat by Raphael Finch (https://github.com/Raphire/Win11Debloat,
+  MIT) - the Sticky Keys shortcut-disable value (Flags=506) and several
+  QoL registry patterns studied while designing UltraOS's equivalents.
 - Chamber-Playbook (https://github.com/ChamberTechFPS/Chamber-Playbook,
   CC BY-NC-SA 4.0) - verification-manifest thinking, phased status text.
 - winutil by ChrisTitusTech (https://github.com/ChrisTitusTech/winutil, MIT) -

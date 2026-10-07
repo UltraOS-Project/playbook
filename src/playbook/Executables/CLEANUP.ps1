@@ -1,5 +1,5 @@
 # CLEANUP.ps1 - UltraOS end-of-run artifact cleanup
-# UltraOS v1.0.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
+# UltraOS v1.1.0 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 #
 # Provenance: modeled on the Atlas playbook's CLEANUP.ps1 (Atlas-OS/Atlas,
 # GPL-3.0). DELIBERATE UltraOS differences (documented, by design):

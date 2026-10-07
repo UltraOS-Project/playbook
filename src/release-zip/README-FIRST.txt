@@ -1,5 +1,5 @@
 ====================================================================
- U L T R A S O S   v1.0.1  -  READ ME FIRST
+ U L T R A S O S   v1.1.0  -  READ ME FIRST
  Windows 11 24H2 / 25H2 / 26H2 optimization playbook for AME Wizard
 ====================================================================
 
@@ -11,7 +11,7 @@ finished install in about ten minutes. The full guide lives at:
 
 WHAT'S IN THIS DOWNLOAD
 -----------------------
-- UltraOS-Playbook-v1.0.1.apbx    the playbook (do NOT unzip it -
+- UltraOS-Playbook-v1.1.0.apbx    the playbook (do NOT unzip it -
                                   AME Wizard opens it directly)
 - SHA256SUMS.txt                  hashes to verify the download
 - README-FIRST.txt                this file
@@ -38,7 +38,7 @@ REQUIREMENTS (the wizard checks all of these)
 ------------------
 1. Install AME Wizard: https://ameliorated.io
 2. Toggle Defender off (see above).
-3. Open UltraOS-Playbook-v1.0.1.apbx in AME Wizard, pick a preset
+3. Open UltraOS-Playbook-v1.1.0.apbx in AME Wizard, pick a preset
    (Balanced is the recommended default), review the extra options
    (all optional, all off by default), choose a browser, press Start.
 
@@ -55,26 +55,51 @@ VERIFY THE DOWNLOAD (recommended)
 ---------------------------------
 Compare the hash of the .apbx against SHA256SUMS.txt:
 
-    Windows PowerShell:  Get-FileHash .\UltraOS-Playbook-v1.0.1.apbx
-    Linux/macOS:         sha256sum UltraOS-Playbook-v1.0.1.apbx
+    Windows PowerShell:  Get-FileHash .\UltraOS-Playbook-v1.1.0.apbx
+    Linux/macOS:         sha256sum UltraOS-Playbook-v1.1.0.apbx
 
 If the hash does not match, delete the download and get a fresh
 copy from the official releases page.
+
+
+ANTIVIRUS WARNING? READ THIS
+-----------------------------
+Windows SmartScreen or your antivirus may flag AME Wizard or this
+.apbx file. That is a known false-positive pattern for the whole
+playbook ecosystem (unsigned community tool + password-protected
+container + system-modification heuristics), not a finding about
+this file. UltraOS ships ZERO executables - it is plain-text YAML
+and PowerShell you can read at github.com/UltraOS-Project/playbook,
+with no obfuscation, no downloaders and no network calls - and
+Defender is re-enabled automatically at the end of the install.
+
+The strongest answer is the hash check above: if it matches
+SHA256SUMS.txt, you have the authentic file. Full story and the
+safe path through any warning (including how to report the false
+positive to Microsoft so the flag dies for everyone):
+
+    docs/ANTIVIRUS.md in this repository
 
 Optional: run Test-WithRealWizard.cmd (included in this download) to
 verify the checksum, test the container exactly like the engine reads
 it, and launch the wizard with the playbook preloaded.
 
 
-WHAT'S NEW IN 1.0.1
+WHAT'S NEW IN 1.1.0
 -------------------
-v1.0.0 failed to load in AME Wizard ("RadioPage with a TopLine and
-BottomLine must not have more than 2 options."). 1.0.1 fixes all five
-engine-rule violations found in the playbook UI definition (preset
-page, browser page, upgrade flag, advanced-options page) and the
-build now runs a full engine-rule dry run before every release, so
-this class of bug cannot ship again. No tweaks changed - all module
-content is identical to 1.0.0.
+MORE TUNING
+- New "Tuning extras" wizard page: SysMain off, Search indexing off,
+  memory compression off, hardware-accelerated GPU scheduling off -
+  each an opt-in checkbox with its trade-off documented.
+- Sticky Keys shortcut off (opt-in), mouse acceleration off and
+  instant menus now actually ship where the docs always promised,
+  MMCSS Games profile at Extreme, EPP=performance in the max-power
+  scheme.
+ANTIVIRUS TRANSPARENCY
+- New docs/ANTIVIRUS.md: why AVs flag playbooks, what we ship (and
+  never ship), SHA-256 verification, false-positive reporting.
+Everything else is unchanged from 1.0.1. Re-running over an older
+install is supported and safe.
 
 
 LINKS

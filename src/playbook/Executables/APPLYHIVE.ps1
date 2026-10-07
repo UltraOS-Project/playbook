@@ -1,5 +1,5 @@
 # APPLYHIVE.ps1 - mirror HKCU tweaks into the default-user profile
-# UltraOS v1.0.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
+# UltraOS v1.1.0 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 #
 # Provenance: pattern derived from the Atlas playbook's APPLYDUHIVE.ps1
 # (Atlas-OS/Atlas, GPL-3.0). DELIBERATE UltraOS IMPROVEMENT (T1-j blueprint S7a):

@@ -1,0 +1,81 @@
+---
+title: Input and MMCSS Responsiveness
+description: >-
+  Safe-tier input tuning: mouse acceleration off (1:1 pointer movement) and the
+  MMCSS SystemResponsiveness floor at 10, plus an opt-in Sticky Keys shortcut
+  disable. Game Mode is intentionally left enabled (see gaming.yml).
+# Safe tier: runs under every preset (01-architecture section 4).
+# Docs contract: README.md + docs/MODULES.md list "Mouse acceleration off,
+# MMCSS SystemResponsiveness" as Safe-tier actions - this file implements that
+# promise. MMCSS was previously swept into Balanced+ by gaming.yml's file-level
+# gate (v1.0.x docs/impl mismatch, fixed in v1.1.0).
+actions:
+  - !writeStatus: {status: 'Tuning input and MMCSS responsiveness'}
+
+  # --- Mouse acceleration off (Enhance Pointer Precision off) -------------------
+  # 1:1 mouse-to-pointer movement - the standard for gaming and precise pointer
+  # work, and the documented UltraOS Safe-tier default. Three REG_SZ values,
+  # Atlas disable-mouse-accel.yml verbatim. Mirrored to the default user hive
+  # by default-user.reg (intended: Safe tier applies to every future user).
+  # Stock: MouseSpeed=1, MouseThreshold1=6, MouseThreshold2=10 (revert.yml).
+  # src: T1-g section 3.3 (Atlas tweaks/qol/input/disable-mouse-accel.yml, GPL-3.0) - preset: safe
+  - !registryValue:
+    path: 'HKCU\Control Panel\Mouse'
+    value: 'MouseSpeed'
+    data: '0'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKCU\Control Panel\Mouse'
+    value: 'MouseThreshold1'
+    data: '0'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKCU\Control Panel\Mouse'
+    value: 'MouseThreshold2'
+    data: '0'
+    type: REG_SZ
+
+  # --- MMCSS SystemResponsiveness = 10 ------------------------------------------
+  # Stock desktop value is 20: 20% of CPU reserved for background work.
+  # 10 reserves 90% for multimedia/gaming threads instead of 80% - real but
+  # modest responsiveness effect for MMCSS-tagged threads, harmless elsewhere.
+  # 10 is the sane floor: the community "0" starves system maintenance threads
+  # and is rejected (T1-g section 3.4). Research verdict: "Safe in all presets."
+  # Kept at 10 even when network/extreme.yml removes NetworkThrottlingIndex -
+  # that pairing limit is documented there.
+  # MOVED HERE from tweaks/performance/gaming.yml in v1.1.0: the file-level
+  # '!preset-safe' gate on gaming.yml had incorrectly swept this ungated-by-design
+  # value into the Balanced tier, contradicting README/MODULES.
+  # Stock: 20 (revert.yml).
+  # src: T1-g section 3.4 (Atlas config-mmcss.yml, GPL-3.0) -
+  # https://learn.microsoft.com/en-us/windows/win32/procthread/multimedia-class-scheduler-service - preset: safe
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
+    value: 'SystemResponsiveness'
+    data: '10'
+    type: REG_DWORD
+
+  # --- OPTION: Sticky Keys shortcut off -------------------------------------------
+  # Disables the Shift-x5 hotkey trigger only (Flags 510 -> 506, the Win11Debloat
+  # value). The Sticky Keys FEATURE itself stays fully available from Settings
+  # > Accessibility - this only stops the accidental pop-up mid-game.
+  #
+  # IMPLEMENTATION NOTE: written through PowerShell instead of a native
+  # !registryValue on purpose. gen-defaultuser-reg.py compiles every NATIVE
+  # HKCU action into default-user.reg unconditionally (build time cannot see
+  # wizard selections), and an opt-in preference must NOT leak into future
+  # user profiles - PowerShell actions are excluded from that compilation.
+  # Stock: Flags=510 (revert.yml restores it).
+  # src: Win11Debloat Disable_Sticky_Keys_Shortcut.reg (MIT, credited in NOTICE) - option: opt-disable-sticky-keys
+  - !powerShell:
+    command: |
+      $key = 'HKCU:\Control Panel\Accessibility\StickyKeys'
+      New-ItemProperty -Path $key -Name 'Flags' -Value '506' -PropertyType String -Force | Out-Null
+      Write-Output 'Sticky Keys shortcut disabled (the accessibility feature itself stays available in Settings).'
+    wait: true
+    runas: currentUserElevated
+    option: 'opt-disable-sticky-keys'
+
+  # NOTE (deliberately NOT shipped, same family, rejected):
+  # MouseHoverTime=0 (Atlas minimize-mouse-hover-time.yml) - tooltips would flash
+  # instantly on every hover-over; annoyance outweighs the milliseconds saved.

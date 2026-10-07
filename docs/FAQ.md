@@ -2,6 +2,12 @@
 
 The questions we expect most often, answered honestly — including the ones where the honest answer is "no, that tweak is a placebo" or "Microsoft doesn't allow that." If your question isn't here, try [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) or the [module reference](MODULES.md).
 
+## Is UltraOS a virus? My antivirus flags it (or AME Wizard)
+
+No — and the flag has a boring, well-understood explanation. Antivirus engines score *behavior patterns*, not intent, and system-tuning playbooks look statistically like malware to a heuristic: an unsigned community tool running with admin/TrustedInstaller rights, a password-protected playbook container (the AME Wizard `.apbx` format, which scanners cannot look inside), and a burst of registry/service/policy writes. Every playbook in the ecosystem — AtlasOS, ReviOS, us — trips the same heuristics.
+
+What the heuristics cannot see is the content, and the content is fully public: UltraOS ships **zero executables** — it is plain-text YAML and PowerShell on GitHub — with no encoded commands, no downloaders, no network calls, and no obfuscation, and Defender is re-enabled at the end of every default install. The strongest answer to any flag is cryptographic, not rhetorical: **verify the SHA-256 of your download against the `SHA256SUMS.txt` in the release** — if it matches, you have the exact bytes the maintainers published. The full story, the safe path through a warning, and how to file a false-positive report with Microsoft (or your AV vendor) so the flag dies for everyone: [ANTIVIRUS.md](ANTIVIRUS.md).
+
 ## Placebos and harmful tweaks we reject
 
 The Windows-optimization scene recycles a set of tweaks that either do nothing on modern Windows or actively harm stability. UltraOS was built by reading the research and the upstream issue trackers first, and several popular rituals failed that review. We do not apply them, and we think you should not either.

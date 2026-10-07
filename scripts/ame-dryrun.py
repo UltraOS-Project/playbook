@@ -932,7 +932,9 @@ def stage5_simulate(cfg_root: Path, parsed: dict, build: int) -> dict:
             "preset-balanced", "rp-on", "wu-auto", "browser-brave",
             "opt-uninstall-edge", "opt-disable-defender", "opt-disable-mitigations",
             "opt-disable-vbs", "opt-max-performance", "opt-disable-hibernation",
-            "opt-strip-recall"},
+            "opt-strip-recall", "opt-disable-sticky-keys", "opt-disable-sysmain",
+            "opt-disable-search-indexing", "opt-disable-memory-compression",
+            "opt-disable-hags"},
     }
     results = {}
     for name, selected in scenarios.items():

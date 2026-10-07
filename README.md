@@ -31,7 +31,7 @@ Every install starts by choosing a preset. The presets are depth tiers, not diff
 | **Services** | None touched | Conservative Atlas-parity set (OneSyncSvc, TrkWks, MapsBroker, lfsvc, RemoteRegistry, RetailDemo, Fax, WMPNetworkSvc, diagnostics hubs…), each labelled against Microsoft's own IoT guidance | + WSearch disabled, SysMain offered as a toggle, NDU and telemetry drivers flagged |
 | **Telemetry** | DiagTrack stopped; core consent denies; Recall off; Copilot button off | + DiagTrack disabled with autologger off, `AllowTelemetry=0`, WER/CEIP off, cloud-content and sponsored-app blockers, scheduled telemetry tasks disabled | + AI/Copilot app-level removal (Copilot app, CoreAI platform), presence sensing force-deny, MSA connection limits |
 | **Network** | — (untouched) | LLMNR off, NIC power-saving tuning, SMB hardening (anonymous-access restrictions, throttling off) | + Experimental TCP stack flags (autotuning, ECN, Nagle) — clearly labelled as such |
-| **Performance** | Mouse acceleration off, MMCSS responsiveness | + GameDVR off, FTH off, service-host split (Xbox excluded), NTFS/battery counters, Win32 priority separation | + Fullscreen optimizations off, MPO off (with caution notes), timer-resolution request pattern |
+| **Performance** | Mouse acceleration off, MMCSS responsiveness, Sticky Keys shortcut off (opt-in) | + GameDVR off, FTH off, service-host split (Xbox excluded), NTFS/battery counters, Win32 priority separation, instant menus (MenuShowDelay 0) | + Fullscreen optimizations off, MPO off (with caution notes), timer-resolution request pattern, MMCSS Games profile |
 | **Visual / QoL** | UltraOS folder + report shortcuts, OEM info | Classic (Win10-style) context menu, taskbar cleanup (Chat/Widgets/Task View buttons), Explorer defaults (This PC view, file extensions, no recommendations) | + Transparency off, animations minimized, dynamic lighting off |
 
 The full module-by-module matrix, including exact file names and trade-off notes, lives in [docs/MODULES.md](docs/MODULES.md).
@@ -40,13 +40,14 @@ The full module-by-module matrix, including exact file names and trade-off notes
 
 1. **Download AME Wizard** from the official Ameliorated site: <https://ameliorated.io> (the same wizard AtlasOS and ReviOS use).
 2. **Temporarily toggle off Microsoft Defender** — Windows Security → *Virus & threat protection* → *Manage settings* → turn the protection toggles off. This is a hard requirement of the wizard (see [Requirements](#requirements) for why, and for the exact steps).
-3. **Open the UltraOS `.apbx` file with AME Wizard** (drag it in or use *Playbook* → *Select...*), pick your preset (Balanced is recommended), and press *Start*. Ten minutes later, read your install report at `C:\Windows\UltraOS\install-report.html`.
+3. **If Windows or your antivirus flags the download, that is a known false-positive pattern for the whole playbook ecosystem** — unsigned community tool + password-protected playbook container + system-modification heuristics. Do not guess: verify the SHA-256 against `SHA256SUMS.txt` from the release, then see [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) for the full explanation and the safe path.
+4. **Open the UltraOS `.apbx` file with AME Wizard** (drag it in or use *Playbook* → *Select...*), pick your preset (Balanced is recommended), and press *Start*. Ten minutes later, read your install report at `C:\Windows\UltraOS\install-report.html`.
 
 The full walkthrough — including the wizard's five pages, the Defender pre-step in detail, and what to do after install — is in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Opt-in extras
 
-On top of your preset, the wizard offers seven optional checkboxes. None of them are required, all of them are individually reversible afterwards from the UltraOS folder, and the risky ones carry warnings directly in the wizard UI. They are deliberately **never** preset-gated: an explicit user choice overrides depth tiers.
+On top of your preset, the wizard offers twelve optional checkboxes across three screens. None of them are required, all of them are individually reversible afterwards, and the risky ones carry warnings directly in the wizard UI. They are deliberately **never** preset-gated: an explicit user choice overrides depth tiers.
 
 | Option | What it does | Warning |
 |---|---|---|
@@ -54,9 +55,14 @@ On top of your preset, the wizard offers seven optional checkboxes. None of them
 | `opt-disable-defender` | Keeps Defender off after install instead of re-enabling it | **Not recommended.** UltraOS re-enables Defender automatically unless you check this |
 | `opt-disable-mitigations` | Disables CPU exploit mitigations (Spectre/Meltdown family, CFG, SEHOP) | Older CPUs only; near-zero gain on modern CPUs; can trigger anti-cheat issues (see [FAQ](docs/FAQ.md)) |
 | `opt-disable-vbs` | Disables Core Isolation / Virtualization-Based Security (HVCI) | **Not recommended.** Breaks Vanguard/FACEIT anti-cheat, WSL2, Docker Desktop, Hyper-V |
-| `opt-max-performance` | Activates a Maximum Performance power scheme (no power saving) | Laptops: expect reduced battery life and more heat |
+| `opt-max-performance` | Activates a Maximum Performance power scheme (no power saving, EPP set to performance) | Laptops: expect reduced battery life and more heat |
 | `opt-disable-hibernation` | Disables Hibernation (and Fast Startup, which depends on it) | Frees disk space equal to a chunk of your RAM; sleep mode still works |
 | `opt-strip-recall` | Strips Recall / AI snapshot features and blocks re-enablement | For privacy-focused users on Copilot+ hardware |
+| `opt-disable-sticky-keys` | Disables the Shift×5 Sticky Keys pop-up trigger (the accessibility feature itself stays available in Settings) | None — safe QoL for gamers; does not apply to future user profiles |
+| `opt-disable-sysmain` | Disables SysMain/Superfetch | Only for fast-NVMe machines with 16 GB+ RAM; on 8–16 GB systems it *increases* hard faults under memory pressure |
+| `opt-disable-search-indexing` | Disables Windows Search indexing (same change Extreme makes) | Start-menu and Explorer file search fall back to slow non-indexed scanning |
+| `opt-disable-memory-compression` | Stops Windows compressing standby memory (`Disable-MMAgent -mc`) | 16 GB+ RAM only; frees CPU cycles at the cost of more pagefile traffic under pressure |
+| `opt-disable-hags` | Disables hardware-accelerated GPU scheduling | Situational troubleshooting switch — try it only if you see stutter; requires reboot |
 
 Finally, the wizard's browser page lets you install **Brave** (default), **Firefox**, **LibreWolf**, or no browser at all. The browser is installed by the AME Wizard engine itself and set as your default — UltraOS never touches your browser's settings or profile.
 
@@ -79,6 +85,7 @@ The optimization scene is full of tweaks that *sound* good and do nothing — or
 - **"Disable services Windows re-enables."** Disabling a service that servicing stacks restore on every update is a treadmill, not a tweak. Where a change won't stick, we don't pretend otherwise; where policy makes it stick, we use policy.
 - **Fully disable Windows Update.** Ever. Security updates are non-negotiable; we offer automatic (default) or notify-only, and nothing else.
 - **Spray `RunOnce` registry entries** or other persistence gimmicks that re-apply tweaks behind your back.
+- **Ship executables, encoded commands or obfuscation of any kind.** The playbook is plain-text YAML and PowerShell you can read on GitHub; a one-command audit for dropper/downloader patterns is documented in [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md).
 
 Our research dossiers (in [`research/`](research/)) cite sources for every tweak we *do* apply, and the [FAQ](docs/FAQ.md) explains the placebo list in detail.
 
@@ -94,6 +101,7 @@ The Defender requirement deserves an explanation, because "please turn off your 
 
 | Doc | Contents |
 |---|---|
+| [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) | Why SmartScreen/antivirus may flag UltraOS or AME Wizard, what we ship (and never ship), SHA-256 verification, safe path through warnings, false-positive reporting |
 | [docs/INSTALL.md](docs/INSTALL.md) | Step-by-step install: prerequisites, the Defender pre-step, the five wizard pages, post-install tour, reading the report, undo |
 | [docs/MODULES.md](docs/MODULES.md) | Every module × every preset: what runs where, trade-offs, how to skip a module |
 | [docs/FAQ.md](docs/FAQ.md) | Placebos we reject, Defender, Windows Updates survival, anti-cheat safety, Home vs Pro, 26H2 notes |

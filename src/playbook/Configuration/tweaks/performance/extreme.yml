@@ -75,6 +75,34 @@ actions:
     data: '~ DISABLEDXMAXIMIZEDWINDOWEDMODE'
     type: REG_SZ
 
+  # --- MMCSS 'Games' task profile (v1.1.0) -----------------------------------------
+  # Bumps the MMCSS scheduling profile applied to full-screen games: CPU
+  # Priority 2 -> 6, Scheduling Category Medium -> Games, SFIO Priority
+  # Normal -> High. GPU Priority is stock 8 already and is deliberately NOT
+  # rewritten (no duplicate writes). Honest framing (T1-g section 3.4): the
+  # effect is anecdotal and small - MMCSS-tagged game threads simply get
+  # friendlier scheduling; no breakage is known. Extreme-only because it is
+  # a preference-shaped value change, not a disable.
+  # Stock/revert (revert.yml): Priority=2, Scheduling Category='Medium',
+  # SFIO Priority='Normal'.
+  # src: community-sourced MMCSS profile set (documented at learn.microsoft.com
+  # MMCSS registry settings; same values ReviOS ships) - NOT in Atlas - preset: extreme
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games'
+    value: 'Priority'
+    data: '6'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games'
+    value: 'Scheduling Category'
+    data: 'Games'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games'
+    value: 'SFIO Priority'
+    data: 'High'
+    type: REG_SZ
+
   # --- Multi-Plane Overlay (MPO) off ------------------------------------------------
   # Disables MPO: fixes flickering on multi-monitor mixed-Hz setups, at the cost
   # of some composition efficiency on supported setups. Troubleshooting-grade

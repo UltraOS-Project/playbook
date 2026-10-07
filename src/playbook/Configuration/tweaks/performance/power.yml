@@ -65,6 +65,12 @@ actions:
       powercfg /setacvalueindex scheme_current 7516b95f-f776-4464-8c53-06167f40cc99 3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e 0
       # Processor performance time check interval - 200 ms (fewer DPCs; up to 5000 ms on statically clocked systems)
       powercfg /setacvalueindex scheme_current 54533251-82be-4824-96c1-47b60b740d00 4d2b0152-7d5c-498b-88e2-34345392a2c5 200
+      # Processor energy performance preference (EPP) - 0 = pure performance (v1.1.0)
+      # Stock 'balanced' behavior trades clock ramp for power; 0 makes the CPU
+      # prefer performance states at all times. Costs idle power draw/heat -
+      # consistent with everything else in this opt-in scheme. AC only: this
+      # scheme is not for battery use anyway.
+      powercfg /setacvalueindex scheme_current 54533251-82be-4824-96c1-47b60b740d00 36687f9e-e3a5-4dbf-b1dc-15eb381c6863 0
       # NIC power-saving advanced properties off (EEE, green ethernet, uAPSD, ...)
       $nicProps = Get-NetAdapter -Physical | Get-NetAdapterAdvancedProperty
       foreach ($setting in @('ULPMode','EEE','EEELinkAdvertisement','AdvancedEEE','EnableGreenEthernet','EeePhyEnable','uAPSDSupport','EnablePowerManagement','EnableSavePowerNow','bLowPowerEnable','PowerSaveMode','PowerSavingMode','SavePowerNowEnabled','AutoPowerSaveModeEnabled','NicAutoPowerSaver','SelectiveSuspend')) {

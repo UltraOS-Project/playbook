@@ -143,3 +143,43 @@ actions:
   # InprocServer32 default value. Deleting the whole key restores the stock
   # Windows 11 menu.
   - !registryKey: {path: 'HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}', operation: delete}
+
+  # ----------------------------------------------------------------------------
+  # PERFORMANCE / INPUT - stock values (added in v1.1.0)
+  # src: T1-g sections 3.3/3.4 + Win11Debloat (MIT) + Revi playbook analysis
+  # ----------------------------------------------------------------------------
+
+  # Menu animation delay (visual/explorer.yml, balanced tier): stock 400 ms.
+  - !registryValue: {path: 'HKCU\Control Panel\Desktop', value: 'MenuShowDelay', data: '400', type: REG_SZ}
+
+  # Mouse acceleration (performance/input.yml, safe tier): stock = acceleration
+  # on (Enhance Pointer Precision): MouseSpeed=1, thresholds 6/10.
+  - !registryValue: {path: 'HKCU\Control Panel\Mouse', value: 'MouseSpeed', data: '1', type: REG_SZ}
+  - !registryValue: {path: 'HKCU\Control Panel\Mouse', value: 'MouseThreshold1', data: '6', type: REG_SZ}
+  - !registryValue: {path: 'HKCU\Control Panel\Mouse', value: 'MouseThreshold2', data: '10', type: REG_SZ}
+
+  # MMCSS SystemResponsiveness (performance/input.yml, safe tier): stock 20
+  # (desktop). This revert entry closes a v1.0.x gap - gaming.yml wrote the
+  # value but no stock entry existed for one-click undo.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile', value: 'SystemResponsiveness', data: '20', type: REG_DWORD}
+
+  # MMCSS 'Games' task profile (performance/extreme.yml, extreme tier):
+  # stock Priority=2, Scheduling Category='Medium', SFIO Priority='Normal'
+  # (GPU Priority is stock 8 and never rewritten by UltraOS).
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'Priority', data: '2', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'Scheduling Category', data: 'Medium', type: REG_SZ}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile\Tasks\Games', value: 'SFIO Priority', data: 'Normal', type: REG_SZ}
+
+  # Sticky Keys shortcut (performance/input.yml, opt-disable-sticky-keys):
+  # stock Flags=510 (hotkey on). Restores the Shift-x5 trigger; the feature
+  # itself is never disabled by UltraOS.
+  - !registryValue: {path: 'HKCU\Control Panel\Accessibility\StickyKeys', value: 'Flags', data: '510', type: REG_SZ}
+
+  # HAGS (performance/extras.yml, opt-disable-hags): stock = ON (2) on
+  # HAGS-capable GPUs under Windows 11.
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers', value: 'HwSchMode', data: '2', type: REG_DWORD}
+
+  # NOTE - memory compression (opt-disable-memory-compression) reverts via
+  # 'Enable-MMAgent -mc' (supported cmdlet; printed in the install report),
+  # not via this registry inventory: Disable-MMAgent's backing store is not a
+  # documented public registry contract.

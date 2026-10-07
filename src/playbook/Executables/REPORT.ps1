@@ -1,5 +1,5 @@
 # REPORT.ps1 - UltraOS post-install report (the UltraOS differentiator)
-# UltraOS v1.0.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
+# UltraOS v1.1.0 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 #
 # Provenance: report design from research/execution-performance-packaging.md
 # section 6.2 (T1-j); diff patterns adapted from the Atlas playbook's appx
@@ -155,7 +155,7 @@ try {
 $setup = Get-ItemProperty 'HKLM:\SOFTWARE\UltraOS\SetupOptions' -ErrorAction SilentlyContinue
 $uVersion = $setup.Version
 if (-not $uVersion -and $meta) { $uVersion = $meta.UltraOSVersion }
-if (-not $uVersion) { $uVersion = '1.0.0' }
+if (-not $uVersion) { $uVersion = '1.1.0' }
 $preset = $setup.Preset
 if (-not $preset -and $meta) { $preset = $meta.Preset }
 if (-not $preset) { $preset = 'unknown' }

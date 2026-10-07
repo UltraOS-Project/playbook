@@ -11,7 +11,7 @@ actions:
   # https://github.com/Atlas-OS/Atlas - one batched PowerShell block, source
   # existence check, explicit exit codes, halt on failure. Old-folder cleanup
   # on upgrades lives in ultraos/start.yml (runs after this file on upgrade
-  # paths; safe because v1.0.0 has UpgradableFrom=none).
+  # paths; safe since v1.0.1 because UpgradableFrom=any).
   - !powerShell:
     command: |
       $ErrorActionPreference = 'Stop'

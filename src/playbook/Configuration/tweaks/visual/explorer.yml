@@ -58,6 +58,19 @@ actions:
     data: '0'
     type: REG_DWORD
 
+  # --- Menu animation delay off (v1.1.0) ---
+  # MenuShowDelay 400 ms (stock) -> 0: context menus and drop-downs open
+  # instantly instead of after a visible delay. Pure responsiveness polish,
+  # no functional trade-off; part of the 'snappier shell' Balanced promise
+  # (ReviOS ships the same value at its default tier).
+  # Stock: 400 (revert.yml).
+  # src: T1-g visual dossier + Revi playbook analysis (MenuShowDelay=0) - preset: balanced
+  - !registryValue:
+    path: 'HKCU\Control Panel\Desktop'
+    value: 'MenuShowDelay'
+    data: '0'
+    type: REG_SZ
+
   # --- Gallery node off (26H2-aware) ---
   # Hides the File Explorer 'Gallery' tree node. On 24H2/25H2 this removes the Gallery
   # page entirely; on 26H2 Gallery is folded into Home - the namespace hide stays valid

@@ -33,11 +33,11 @@ This is the step people ask about most, so here it is in full, up front. UltraOS
 
 UltraOS is a playbook for **AME Wizard**, the open ecosystem playbook runner maintained by Ameliorated — the same wizard used by AtlasOS and ReviOS. Download it from the official site: **<https://ameliorated.io>** (the site now lives under amelabs.net; the old address redirects). Install it like any Windows application. If your browser or Defender flags the download, that is a false positive on a password-protected archive — the wizard's documentation explains how to allow it.
 
-Next, download the UltraOS playbook (an `.apbx` file) from the [UltraOS releases](https://github.com/UltraOS-Project/playbook/releases). If your download ships with a `SHA256SUMS.txt`, verify the hash before running (see [README-FIRST.txt](../src/release-zip/README-FIRST.txt) for the exact commands). You do not need to extract or unzip anything — the wizard opens the file directly.
+Next, download the UltraOS playbook (an `.apbx` file) from the [UltraOS releases](https://github.com/UltraOS-Project/playbook/releases). **Expect a possible SmartScreen or antivirus warning on the wizard, the download, or both** — this is a known false-positive pattern for the whole AME Wizard ecosystem (unsigned community tool + password-protected playbook container + system-modification heuristics). Do not guess; verify: check the file's SHA-256 against the `SHA256SUMS.txt` shipped in the same release (exact commands in [README-FIRST.txt](../src/release-zip/README-FIRST.txt)), and read [ANTIVIRUS.md](ANTIVIRUS.md) for the full explanation, the safe path through any warning, and how to file a false-positive report with Microsoft or your AV vendor. You do not need to extract or unzip anything — the wizard opens the file directly.
 
 ## Step 2 — Open the playbook and walk the wizard pages
 
-Launch AME Wizard, then drag the `.apbx` onto the window (or use *Select Playbook*). After the wizard reads your system, you will meet **five pages of choices**. This is what each one means and what we recommend:
+Launch AME Wizard, then drag the `.apbx` onto the window (or use *Select Playbook*). After the wizard reads your system, you will meet **seven pages of choices**. This is what each one means and what we recommend:
 
 ### Page 1 — Preset
 
@@ -51,9 +51,9 @@ UltraOS can create a **System Restore Point** before touching anything. This is 
 
 Pick how updates are handled after install. **Automatic** (default, recommended) keeps your machine patched without any action from you. **Notify only** downloads nothing until you approve — for people who want to review each update. UltraOS **never fully disables Windows Update** at either setting, and you can switch modes later from the UltraOS folder (`2. Updates`).
 
-### Page 4 — Extras (two screens of checkboxes)
+### Page 4 — Extras (three screens of checkboxes)
 
-These are the opt-in extras, all unchecked by default. The first screen holds the advanced, trade-off-heavy options: **Remove Microsoft Edge**, **Keep Defender disabled** (not recommended), **Disable CPU mitigations** (older CPUs only), and **Disable Core Isolation/VBS** (breaks Valorant, WSL2, Docker — genuinely not recommended). The second screen holds the safer ones: **Maximum Performance power scheme**, **Disable Hibernation**, and **Strip Recall/AI features**. None are required; each links to the documentation from the wizard itself. Our advice: leave the first screen untouched unless you have read the [FAQ](FAQ.md) entries for the option you are considering.
+These are the opt-in extras, all unchecked by default. The first screen holds the advanced, trade-off-heavy options: **Remove Microsoft Edge**, **Keep Defender disabled** (not recommended), **Disable CPU mitigations** (older CPUs only), and **Disable Core Isolation/VBS** (breaks Valorant, WSL2, Docker — genuinely not recommended). The second screen holds the safer ones: **Maximum Performance power scheme** (now also sets the CPU's energy-performance preference to performance), **Disable Hibernation**, **Strip Recall/AI features**, and **Disable the Sticky Keys shortcut** (kills the Shift×5 pop-up trigger only — the accessibility feature stays available in Settings). The third screen is the **Tuning extras** page: **SysMain/Superfetch off** (only for fast NVMe + 16 GB RAM), **Windows Search indexing off** (file search gets slower), **memory compression off** (16 GB+ only), and **hardware-accelerated GPU scheduling off** (a try-it-if-you-see-stutter troubleshooting switch). None are required; the docs behind every option are linked from the wizard. Our advice: leave the first screen untouched unless you have read the [FAQ](FAQ.md) entries for the option you are considering, and only tick a Tuning extra if it matches your hardware.
 
 ### Page 5 — Browser
 

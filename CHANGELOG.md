@@ -2,6 +2,35 @@
 
 All notable changes to UltraOS are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [semantic versioning](https://semver.org/) with the caveat that "breaking" for a playbook means "an install made by an older version may need attention before upgrading" — the wizard's own upgrade flow (`Upgrade`, not *Run again*) handles version-to-version migration.
 
+## [1.1.0] — 2026-10-07
+
+Feature release: a new **Tuning extras** wizard page, five new opt-in switches, the input/mouse module the docs always promised, and a full "antivirus flags this?" transparency package (new doc, honest answers, verification-first flow).
+
+### Added — more tuning
+
+- **Tuning extras wizard page** (fourth checkbox screen): SysMain off, Windows Search indexing off, memory compression off, and hardware-accelerated GPU scheduling off — each an any-preset opt-in with its real trade-off documented in the YAML and in the install report. Extreme-preset users get SysMain/WSearch from their tier regardless; the checkboxes make the same changes available at Safe/Balanced for machines that only want those two.
+- **`opt-disable-sticky-keys`** on the "Additional options" page — kills the Shift×5 pop-up trigger only (the accessibility feature itself stays available in Settings). Written through PowerShell on purpose so the preference does **not** leak into future user profiles via `default-user.reg`.
+- **Input & MMCSS module** (`tweaks/performance/input.yml`): mouse acceleration off (Atlas-verbatim trio, Safe tier) — this *implements* what README/MODULES already documented — plus `MenuShowDelay 400 → 0` at Balanced for instant menus (ReviOS parity).
+- **MMCSS "Games" task profile** at Extreme (`Priority 6`, `Scheduling Category Games`, `SFIO High`) — the classic community profile, honestly labeled as anecdotal-but-harmless; stock values recorded in the revert inventory.
+- **EPP = 0 (AC)** folded into the Maximum Performance power scheme — the CPU now prefers performance states in the opt-in scheme instead of stopping at clock-ramp tweaks.
+
+### Fixed — docs/implementation mismatches (found while auditing every module)
+
+- **Mouse acceleration off** was documented as a Safe-tier action since 1.0.0 but never actually shipped. It now runs under every preset, exactly as README and MODULES.md promise.
+- **MMCSS `SystemResponsiveness=10`** was documented as Safe-tier but sat behind gaming.yml's file-level `!preset-safe` gate, so it only ran at Balanced+. Moved to `input.yml` ungated (matches the research verdict "Safe in all presets").
+- The v1.0.x revert inventory had **no stock entry for `SystemResponsiveness`**, so one-click undo could not restore it. Fixed, along with stock entries for everything new in this release (mouse trio, `MenuShowDelay`, Sticky Keys `Flags=510`, `HwSchMode=2`, MMCSS Games profile).
+
+### Added — "antivirus considers it malicious" transparency package
+
+- **New doc: [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md)** — why Windows SmartScreen or an antivirus may flag AME Wizard or the `.apbx` container, what UltraOS actually ships (zero executables, readable scripts, GPL-3.0 source), how to verify the download against `SHA256SUMS.txt` before doing anything, how to proceed safely when a warning appears, and how to file a false-positive report with Microsoft or your AV vendor.
+- README "Quick start" and FAQ now answer the flag question up front and link the doc; INSTALL.md gains an "expect a warning, verify the hash" step; the release README-FIRST.txt carries the same note so the answer ships *with the download*.
+- Script-level audit (documented in the doc): the playbook contains no encoded commands, no downloaders, no obfuscation, no binaries, and no non-official URLs — everything an AV sees is plain-text registry/service commands you can read on GitHub.
+
+### Upgrade notes
+
+- Re-running v1.1.0 over a v1.0.x install is supported (`UpgradableFrom=any`). New Safe-tier actions (mouse accel, MMCSS) apply on the next run; all new extras are opt-in checkboxes that default to off, so an upgrade run changes nothing you did not pick.
+
+
 ## [1.0.1] — 2026-10-08
 
 Hotfix release. v1.0.0 failed to load in AME Wizard with

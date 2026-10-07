@@ -67,10 +67,12 @@ actions:
 
   # MODULE: performance
   - !writeStatus: {status: 'Applying performance tweaks'}
+  - !task: {path: 'tweaks\performance\input.yml'}
   - !task: {path: 'tweaks\performance\gaming.yml'}
   - !task: {path: 'tweaks\performance\system.yml'}
   - !task: {path: 'tweaks\performance\power.yml'}
   - !task: {path: 'tweaks\performance\extreme.yml'}
+  - !task: {path: 'tweaks\performance\extras.yml'}
 
   # MODULE: visual + quality of life
   - !writeStatus: {status: 'Applying visual and usability tweaks'}

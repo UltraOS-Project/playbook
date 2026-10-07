@@ -37,7 +37,7 @@ actions:
 
   # Write setup markers (read by the UltraOS folder toggles, report and undo tooling)
   - !registryKey: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', operation: add}
-  - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Version', data: '1.0.0', type: REG_SZ}
+  - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Version', data: '1.1.0', type: REG_SZ}
   - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Preset', data: 'safe', type: REG_SZ, option: 'preset-safe'}
   - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Preset', data: 'balanced', type: REG_SZ, option: 'preset-balanced'}
   - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Preset', data: 'extreme', type: REG_SZ, option: 'preset-extreme'}

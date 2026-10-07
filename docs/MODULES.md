@@ -4,7 +4,7 @@ This document is the complete map of what UltraOS does, organized by module and 
 
 ## How the presets gate actions
 
-The three presets are depth tiers applied with strict, mechanical rules — there is no per-tweak judgement call at install time. An action with **no option gate runs under every preset** (that is the Safe tier). An action gated `option: '!preset-safe'` runs when the selected preset is **Balanced or Extreme**. An action gated `option: 'preset-extreme'` runs **only under Extreme**. The seven extras (`opt-...`) are never preset-gated: an explicit checkbox always wins, at any tier. This gating lives in the YAML itself, which means you can audit any single action's tier by opening the file that contains it.
+The three presets are depth tiers applied with strict, mechanical rules — there is no per-tweak judgement call at install time. An action with **no option gate runs under every preset** (that is the Safe tier). An action gated `option: '!preset-safe'` runs when the selected preset is **Balanced or Extreme**. An action gated `option: 'preset-extreme'` runs **only under Extreme**. The twelve extras (`opt-...`) are never preset-gated: an explicit checkbox always wins, at any tier. This gating lives in the YAML itself, which means you can audit any single action's tier by opening the file that contains it.
 
 | Tier | Gate in YAML | Runs under |
 |---|---|---|
@@ -63,14 +63,15 @@ The never-touch list — the update/servicing services (`wuauserv`, `UsoSvc`, `T
 | NIC power-saving properties (the five advanced-adapter keywords) | ➖ | ✅ | ✅ | NIC tweaks reduce latency-relevant power-saving; laptop battery impact is small but real |
 | Experimental TCP stack: autotuning level, ECN, Nagle/TCPAck frequency, throttling index | ➖ | ➖ | ✅ | Atlas ships none of these; we keep them Extreme-only with warnings because they trade robustness for benchmark scores and can misbehave on odd routers |
 
-### Performance (`tweaks/performance/gaming.yml`, `system.yml`, `power.yml`, `extreme.yml`)
+### Performance (`tweaks/performance/input.yml`, `gaming.yml`, `system.yml`, `power.yml`, `extreme.yml`, `extras.yml`)
 
 | Action group | Safe | Balanced | Extreme | Trade-off notes |
 |---|---|---|---|---|
-| Mouse acceleration off, MMCSS `SystemResponsiveness` | ✅ | ✅ | ✅ | The uncontroversial classics; Game Mode stays **on** by design |
-| GameDVR off (GameConfigStore + policy), background apps off, FTH off, service-host split (Xbox-excluded), Win32 priority separation, NTFS/8.3/battery counters, folder-discovery off | ➖ | ✅ | ✅ | Service-host split trades a little RAM for fewer processes. **No pagefile disabling — rejected as a placebo**, with the reasoning in a source comment |
-| Extreme: fullscreen optimizations off, MPO off, `GlobalTimerResolutionRequests` | ➖ | ➖ | ✅ | MPO off fixes stutter on some setups and breaks frame pacing on others — a debug tool, not a free win. No timer-hack binaries are bundled |
-| Power scheme extras | `opt-max-performance` (Ultimate-Performance-derived scheme) · `opt-disable-hibernation` (`powercfg /h off`) | | | Both are any-preset extras; see the warnings in [README](../README.md#opt-in-extras) |
+| Mouse acceleration off, MMCSS `SystemResponsiveness=10` (`input.yml`) | ✅ | ✅ | ✅ | The uncontroversial classics; Game Mode stays **on** by design. v1.1.0 made reality match this table: both actions were previously missing/mis-gated |
+| GameDVR off (GameConfigStore + policy), background apps off, FTH off, service-host split (Xbox-excluded), Win32 priority separation, NTFS/8.3/battery counters, folder-discovery off, instant menus (`MenuShowDelay=0`) | ➖ | ✅ | ✅ | Service-host split trades a little RAM for fewer processes. **No pagefile disabling — rejected as a placebo**, with the reasoning in a source comment |
+| Extreme: fullscreen optimizations off, MPO off, `GlobalTimerResolutionRequests`, MMCSS Games profile (Priority 6 / Games / SFIO High) | ➖ | ➖ | ✅ | MPO off fixes stutter on some setups and breaks frame pacing on others — a debug tool, not a free win. The MMCSS Games profile is the classic community set, honestly labeled anecdotal-but-harmless. No timer-hack binaries are bundled |
+| Power scheme extras | `opt-max-performance` (Ultimate-Performance-derived scheme, EPP=performance) · `opt-disable-hibernation` (`powercfg /h off`) | | | Both are any-preset extras; see the warnings in [README](../README.md#opt-in-extras) |
+| Tuning extras (`extras.yml`, `input.yml`) | `opt-disable-sysmain` · `opt-disable-search-indexing` · `opt-disable-memory-compression` · `opt-disable-hags` · `opt-disable-sticky-keys` | | | The four system switches mirror Extreme-tier changes as any-preset checkboxes with full trade-off notes; sticky-keys is a PowerShell-only write so it never leaks to future user profiles via `default-user.reg` |
 
 ### Visual & QoL (`tweaks/visual/*.yml`, `tweaks/qol/*.yml`)
 

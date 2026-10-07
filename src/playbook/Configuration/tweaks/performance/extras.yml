@@ -1,0 +1,82 @@
+---
+title: Tuning Extras (Opt-In Services and System Switches)
+description: >-
+  Four opt-in extras that sit outside the preset tiers: SysMain off, Windows
+  Search indexing off, memory compression off, and hardware-accelerated GPU
+  scheduling off. Each one is situational with a real trade-off - they stay
+  off by default and are individually reversible.
+# No file-level gate: every action carries its own wizard-option gate.
+# These overlap deliberately with tweaks/services/extreme-services.yml (the
+# Extreme preset already disables SysMain/WSearch); identical startup values
+# keep the actions idempotent and validator-clean either way.
+actions:
+  - !writeStatus: {status: 'Applying tuning extras'}
+
+  # --- OPTION: SysMain / Superfetch off ----------------------------------------
+  # Same change the Extreme preset applies, offered as a checkbox for any
+  # preset. HONEST TRADE-OFF (T1-g section 6.4): disabling kills SuperFetch
+  # prefetch (mostly dormant on NVMe anyway) AND standby memory compression,
+  # so memory-constrained machines (8-16 GB) get MORE hard faults under
+  # pressure. Makes sense on fast NVMe systems with 16 GB+ RAM where standby
+  # churn is low; pointless or harmful elsewhere. Microsoft lists SysMain as
+  # 'Don't disable'.
+  # Stock: Automatic (2). Revert: sc config SysMain start= auto (also in revert.yml).
+  # src: T1-g section 6.4 + 1.3 - option: opt-disable-sysmain
+  - !service: {name: 'SysMain', operation: change, startup: 4, option: 'opt-disable-sysmain'}
+
+  # --- OPTION: Windows Search indexing off --------------------------------------
+  # Same change the Extreme preset applies (service disable), as a checkbox for
+  # any preset. Trade-off: file/content search in Explorer, the Start menu and
+  # indexed apps (e.g. Outlook) falls back to slow non-indexed scanning.
+  # Frees the SearchIndexer.exe background CPU/RAM churn - noticeable on
+  # low-core CPUs. If you only want less indexing, leave this off and let the
+  # presets handle the rest.
+  # Stock: Automatic / delayed start. Revert: sc config WSearch start= delayed-auto
+  #        + net start WSearch (also in revert.yml).
+  # src: T1-g section 1.3 + 1.4 - option: opt-disable-search-indexing
+  - !service: {name: 'WSearch', operation: change, startup: 4, option: 'opt-disable-search-indexing'}
+
+  # --- OPTION: Memory compression off --------------------------------------------
+  # Disable-MMAgent -mc stops Windows from compressing standby memory pages.
+  # Frees the CPU cycles spent on compression (a real win on low-core/high-
+  # load machines) at the cost of more pagefile traffic under memory pressure.
+  # Only sensible with 16 GB+ RAM. Takes effect after a reboot.
+  # Revert (also printed in the install report): Enable-MMAgent -mc
+  # Deliberately NOT set alongside it: Disable-MMAgent -pc (page combining) -
+  # rejected as near-zero benefit, same family as the pagefile placebos
+  # (T1-g section 6.4 reasoning).
+  # src: community-sourced (documented cmdlet, learn.microsoft.com/mmagent) - option: opt-disable-memory-compression
+  - !powerShell:
+    command: |
+      try {
+          Disable-MMAgent -mc -ErrorAction Stop
+          Write-Output 'Memory compression disabled. Takes effect after the next reboot.'
+      } catch {
+          Write-Output ('Memory compression: could not be disabled (' + $_.Exception.Message + ') - skipped, non-fatal.')
+      }
+      exit 0
+    wait: true
+    option: 'opt-disable-memory-compression'
+
+  # --- OPTION: Hardware-accelerated GPU scheduling (HAGS) off --------------------
+  # HwSchMode: 1 = off, 2 = on. Stock on Windows 11 with a supported GPU + driver
+  # is ON (2). Community evidence is genuinely mixed (T1-g section 3.3): some
+  # setups see input-latency or mouse-feel improvements with HAGS off (older
+  # GPUs/drivers, some VR/streaming configurations report stutter with it ON),
+  # others lose a small composition win. This is a try-it-and-see troubleshooting
+  # switch, NOT a universal win - which is exactly why it is opt-in and defaults
+  # to stock. Requires a reboot. Atlas ships no registry change here (only a
+  # Settings shortcut) - we expose the explicit toggle with guidance instead.
+  # Stock: 2 on HAGS-capable systems (revert.yml).
+  # src: T1-g section 3.3 (HwSchMode semantics; windowsforum/PCGamingWiki community evidence) - option: opt-disable-hags
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\GraphicsDrivers'
+    value: 'HwSchMode'
+    data: '1'
+    type: REG_DWORD
+    option: 'opt-disable-hags'
+
+  # NOTE (deliberately NOT shipped): timer-resolution request utilities,
+  # interrupt-affinity policies, MSI-mode scripts and core-parking tools.
+  # v1.0.0 already rejected them (no unverifiable third-party binaries, no
+  # machine-specific surgery) and v1.1.0 keeps that line - see docs/FAQ.md.

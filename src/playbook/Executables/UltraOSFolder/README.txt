@@ -1,5 +1,5 @@
 ================================================================
- ULTRAOS v1.0.0 - POST-INSTALL FOLDER
+ ULTRAOS v1.1.0 - POST-INSTALL FOLDER
 ================================================================
 
 Welcome to UltraOS! This folder (C:\Windows\UltraOS) was copied

@@ -69,17 +69,11 @@ actions:
     data: '0'
     type: REG_DWORD
 
-  # --- MMCSS -------------------------------------------------------------------
-  # SystemResponsiveness 10 (stock desktop value is 20): reserves 90% of CPU for
-  # multimedia/gaming threads instead of 80%. 10 is the sane floor - the community
-  # "0" value starves system maintenance threads and is rejected.
-  # src: T1-g §3.4 (Atlas config-mmcss.yml) ·
-  # https://learn.microsoft.com/en-us/windows/win32/procthread/multimedia-class-scheduler-service · preset: balanced
-  - !registryValue:
-    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
-    value: 'SystemResponsiveness'
-    data: '10'
-    type: REG_DWORD
+  # --- MMCSS SystemResponsiveness: MOVED to tweaks/performance/input.yml (v1.1.0) ----
+  # That value is Safe-tier by design (README/MODULES contract, T1-g section 3.4
+  # "Safe in all presets") but this file's '!preset-safe' gate had swept it into
+  # Balanced+. network/extreme.yml's NetworkThrottlingIndex comment still holds:
+  # responsiveness stays at 10, now owned by input.yml.
 
   # --- Background apps off -------------------------------------------------------
   # Stops UWP/packaged apps from running in the background. Trade-off: store-app
