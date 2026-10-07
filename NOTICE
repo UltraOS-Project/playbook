@@ -1,0 +1,47 @@
+UltraOS
+Copyright (C) 2026 UltraOS Project
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License as published by the Free Software
+Foundation, either version 3 of the License, or (at your option) any later
+version. See LICENSE for the full text.
+
+ATTRIBUTION
+===========
+
+UltraOS is derived in part from the Atlas playbook
+(https://github.com/Atlas-OS/Atlas), Copyright (C) AtlasOS contributors,
+licensed GPL-3.0. The playbook structure, playbook.conf conventions, the
+conservative service sets, deprovisioning patterns, and the post-install
+toggle-folder concept are derived from Atlas. This attribution is required by
+the GPL and deserved by the quality of the upstream work; the UltraOS project
+is otherwise not affiliated with AtlasOS.
+
+UltraOS is executed by AME Wizard. Its open-source backend,
+TrustedUninstaller (https://github.com/Ameliorated-LLC/trusted-uninstaller-cli,
+MIT), and ame-assassin (https://github.com/Ameliorated-LLC/ame-assassin, MIT)
+are used unmodified at runtime by the wizard to apply playbook actions.
+
+Design was further informed by the following projects. Ideas and design
+patterns only were taken; no code or YAML was copied from the
+non-GPL-compatible sources, and small snippets from permissive licenses are
+credited in-line in the source files where they appear:
+
+- ReviOS / MeetRevision playbook (https://github.com/MeetRevision/playbook,
+  CC BY-SA 4.0) - engine-native browser flow, option UX, honest warning copy.
+- Chamber-Playbook (https://github.com/ChamberTechFPS/Chamber-Playbook,
+  CC BY-NC-SA 4.0) - verification-manifest thinking, phased status text.
+- winutil by ChrisTitusTech (https://github.com/ChrisTitusTech/winutil, MIT) -
+  per-tweak original-value/undo data model, per-tweak documentation links.
+- O&O ShutUp10++ (https://www.oo-software.com/en/shutup10) - privacy-toggle
+  UX with per-setting recommendation levels (inspiration only).
+- Remove-MS-Edge by ShadowWhisperer (https://github.com/ShadowWhisperer/
+  Remove-MS-Edge, CC0-1.0) - studied as the reference Edge-removal mechanism
+  when designing UltraOS's independent implementation.
+
+Windows, Windows 11, and Microsoft Defender are trademarks of Microsoft
+Corporation. UltraOS is not affiliated with, endorsed by, or sponsored by
+Microsoft, Ameliorated LLC, AtlasOS, or MeetRevision. Tweak behavior was
+verified against publicly documented Microsoft behavior; Microsoft
+documentation (learn.microsoft.com) is cited throughout the research dossiers
+in the research/ directory.

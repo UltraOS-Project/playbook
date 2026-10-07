@@ -1,0 +1,68 @@
+---
+title: NIC Configuration (Power-Saving Keywords Off)
+description: >-
+  Disables NIC energy-efficiency and latency-increasing driver keywords
+  (AutoDisableGigabit, ApCompatMode, SipsEnabled, ReduceSpeedOnPowerDown,
+  DMACoalescing) on every PCI network adapter, Atlas-parity. Values are
+  only written when the driver already exposes the keyword.
+# Balanced tier: runs under Balanced and Extreme, skipped under Safe.
+# (T1-g section 7 maps the NIC keyword set to every tier; 03-build-manifest
+# assigns this file to the Balanced tier - the manifest wins here.)
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Tuning network adapters'}
+
+  # Mechanism replicated from Atlas 'Reset Network to Atlas Default.cmd':
+  # enumerate PCI NICs via Win32_NetworkAdapter PNPDeviceID, resolve each
+  # adapter's driver class key (HKLM\SYSTEM\CurrentControlSet\Control\Class\...)
+  # through the Enum\<PNPDeviceID> 'Driver' value, then set each keyword to
+  # '0' (REG_SZ, with and without '*' prefix) ONLY if the value already
+  # exists. The only-if-present check matters: forcing keywords a driver
+  # does not expose can make some Killer/Realtek NICs misbehave (T1-g 5.4).
+  # Improvement over Atlas: their cmd loop keeps only the LAST enumerated
+  # PCI adapter in a variable, so multi-NIC systems get one adapter tuned;
+  # this block applies the keywords to every PCI adapter found.
+  # Deliberately NOT touched - Atlas 'unknown benefit' list (T1-g 5.1):
+  #   LargeSendOffload*, LsoV1IPv4, LsoV2IPv4, LsoV2IPv6, PriorityVLANTag,
+  #   PacketCoalescing, FlowControl/FlowControlCap ('could cause dropped
+  #   network frames'), DeviceSleepOnDisconnect, EnableModernStandby,
+  #   ARPOffloadEnable, NSOffloadEnable, GTKOffloadEnable, Enable9KJFTpt...
+  # Non-PCI adapters (USB NICs etc.) are out of scope - same as Atlas.
+  # A reboot (or driver reload) is required for the changes to take effect.
+  # Idempotent: re-runs only rewrite values that already exist.
+  # src: T1-g section 5.1 - Atlas 'Executables/AtlasDesktop/9. Troubleshooting/Network/Reset Network to Atlas Default.cmd' (GPL-3.0) - preset: balanced
+  # DMACoalescing latency note: https://www.intel.com/content/www/us/en/support/articles/000007456/ethernet-products.html
+  - !powerShell:
+    command: |
+      $keywords = @(
+          'AutoDisableGigabit',     # do not auto-disable gigabit link
+          'ApCompatMode',           # 0 = 'High Performance' AP compatibility mode
+          'SipsEnabled',            # system idle power saving - reduces link speed
+          'ReduceSpeedOnPowerDown', # reduces link speed to save power
+          'DMACoalescing'           # interrupt coalescing - 'may increase latency'
+      )
+      $adapters = Get-CimInstance Win32_NetworkAdapter -ErrorAction SilentlyContinue |
+          Where-Object { $_.PNPDeviceID -like 'PCI\VEN_*' }
+      $tuned = 0
+      foreach ($adapter in $adapters) {
+          $enumKey = 'HKLM:\SYSTEM\CurrentControlSet\Enum\' + $adapter.PNPDeviceID
+          $driver = (Get-ItemProperty -Path $enumKey -Name Driver -ErrorAction SilentlyContinue).Driver
+          if (-not $driver) { continue }
+          $classKey = 'HKLM:\SYSTEM\CurrentControlSet\Control\Class\' + $driver
+          if (-not (Test-Path $classKey)) { continue }
+          foreach ($keyword in $keywords) {
+              foreach ($name in @($keyword, '*' + $keyword)) {
+                  # only-if-present check (Atlas parity)
+                  if ($null -eq (Get-ItemProperty -Path $classKey -Name $name -ErrorAction SilentlyContinue)) { continue }
+                  $prop = New-ItemProperty -Path $classKey -Name $name -Value '0' -PropertyType String -Force -ErrorAction SilentlyContinue
+                  if ($null -ne $prop) {
+                      $tuned++
+                      Write-Output ('NIC ' + $adapter.Name + ': ' + $name + ' = 0')
+                  }
+              }
+          }
+      }
+      Write-Output ('Configured ' + $tuned + ' NIC keyword value(s). Reboot required to apply.')
+      exit 0
+    runas: currentUserElevated
+    wait: true

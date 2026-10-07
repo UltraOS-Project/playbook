@@ -1,0 +1,68 @@
+---
+title: Copy UltraOS Folder
+description: >-
+  Copies the UltraOS post-install toggle folder to Windows\UltraOS and deploys
+  the shared tooling scripts (undo, report, backups) into Windows\UltraOS\Scripts
+  so they stay available after the playbook finishes.
+actions:
+  - !writeStatus: {status: 'Copying UltraOS folder'}
+
+  # Copy pattern derived from Atlas-OS/Atlas 'Configuration/custom.yml' (GPL-3.0):
+  # https://github.com/Atlas-OS/Atlas - one batched PowerShell block, source
+  # existence check, explicit exit codes, halt on failure. Old-folder cleanup
+  # on upgrades lives in ultraos/start.yml (runs after this file on upgrade
+  # paths; safe because v1.0.0 has UpgradableFrom=none).
+  - !powerShell:
+    command: |
+      $ErrorActionPreference = 'Stop'
+      $windir = [Environment]::GetFolderPath('Windows')
+      $source = 'UltraOSFolder'
+      if (!(Test-Path $source)) { exit 1 }
+      try {
+          Copy-Item -Path $source -Destination $windir -Force -Recurse
+      } catch {
+          Write-Output $_.Exception.Message
+          exit 2
+      }
+      # Deploy the shared tooling scripts into Windows\UltraOS\Scripts (next to
+      # the toggle workers that ship inside UltraOSFolder\Scripts). The folder
+      # copy above already created the destination. These scripts are owned by
+      # other agents (T3-i rollback/report tooling, T3-a Edge unlock) and are
+      # used by the 'Uninstall UltraOS' toggle and support workflows.
+      $scriptsDest = Join-Path $windir 'UltraOS\Scripts'
+      if (!(Test-Path $scriptsDest)) { exit 3 }
+      foreach ($script in @(
+              'RESTOREPOINT.ps1',
+              'BACKUP.ps1',
+              'APPLYHIVE.ps1',
+              'REPORT.ps1',
+              'CLEANUP.ps1',
+              'UNDO.ps1',
+              'Undo.cmd',
+              'EDGE-UNLOCK.ps1')) {
+          if (!(Test-Path $script)) {
+              Write-Output "Expected tooling script missing from the playbook: $script"
+              exit 4
+          }
+          try {
+              Copy-Item -Path $script -Destination $scriptsDest -Force
+          } catch {
+              Write-Output $_.Exception.Message
+              exit 5
+          }
+      }
+      # default-user.reg is generated at build time (scripts/gen-defaultuser-reg.py)
+      # and may be absent in source checkouts - copy it when present, never fail.
+      if (Test-Path 'default-user.reg') {
+          try {
+              Copy-Item -Path 'default-user.reg' -Destination $scriptsDest -Force
+          } catch {
+              Write-Output $_.Exception.Message
+              exit 5
+          }
+      }
+      exit 0
+    weight: 10
+    wait: true
+    exeDir: true
+    handleExitCodes: { '!0': halt }

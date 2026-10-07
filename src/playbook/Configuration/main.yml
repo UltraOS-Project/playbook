@@ -1,0 +1,107 @@
+---
+title: UltraOS Root Playbook File
+description: Runs all UltraOS playbook modules in a speed-optimized order with backup, report and rollback support
+actions:
+  # Load the default-user hive so per-user tweaks can be mirrored for future users
+  - !powerShell:
+    command: 'reg load HKU\AME_UserHive_Default C:\Users\Default\NTUSER.DAT'
+    oobe: false
+    wait: true
+
+  - !writeStatus: {status: 'Preparing UltraOS'}
+
+  # MODULE: UltraOS core tooling (copies the post-install folder to Windows\UltraOS)
+  - !task: {path: 'tweaks\ultraos\copy-folders.yml'}
+
+  # Early setup - cleans up old UltraOS installs, mutes notifications during deployment
+  - !task: {path: 'ultraos\start.yml'}
+
+  # Restore point (wizard option rp-on)
+  - !writeStatus: {status: 'Creating System Restore point'}
+  - !powerShell:
+    command: '.\RESTOREPOINT.ps1'
+    exeDir: true
+    wait: true
+    option: 'rp-on'
+    weight: 3
+
+  # Backups of current state (services, appx, tasks) - used by rollback and the install report
+  - !writeStatus: {status: 'Backing up current state'}
+  - !powerShell:
+    command: '.\BACKUP.ps1'
+    exeDir: true
+    wait: true
+    weight: 2
+
+  # MODULE: services
+  - !writeStatus: {status: 'Configuring services'}
+  - !task: {path: 'ultraos\services.yml'}
+  - !task: {path: 'tweaks\services\extreme-services.yml'}
+
+  # MODULE: debloat
+  - !writeStatus: {status: 'Removing bloatware'}
+  - !task: {path: 'tweaks\debloat\appx-removals.yml'}
+  - !task: {path: 'tweaks\debloat\reinstall-blockers.yml'}
+  - !task: {path: 'tweaks\debloat\edge-removal.yml'}
+
+  # MODULE: privacy
+  - !writeStatus: {status: 'Applying privacy tweaks'}
+  - !task: {path: 'tweaks\privacy\telemetry-services.yml'}
+  - !task: {path: 'tweaks\privacy\telemetry-policies.yml'}
+  - !task: {path: 'tweaks\privacy\settings-privacy.yml'}
+  - !task: {path: 'tweaks\privacy\cloud-content.yml'}
+  - !task: {path: 'tweaks\privacy\ai-features.yml'}
+  - !task: {path: 'tweaks\privacy\app-telemetry.yml'}
+  - !task: {path: 'tweaks\privacy\extras-extreme.yml'}
+
+  # MODULE: scheduled tasks
+  - !writeStatus: {status: 'Configuring scheduled tasks'}
+  - !task: {path: 'tweaks\tasks\telemetry-tasks.yml'}
+  - !task: {path: 'tweaks\tasks\maintenance-tasks.yml'}
+
+  # MODULE: network
+  - !writeStatus: {status: 'Optimizing network settings'}
+  - !task: {path: 'tweaks\network\core.yml'}
+  - !task: {path: 'tweaks\network\nic-config.yml'}
+  - !task: {path: 'tweaks\network\extreme.yml'}
+
+  # MODULE: performance
+  - !writeStatus: {status: 'Applying performance tweaks'}
+  - !task: {path: 'tweaks\performance\gaming.yml'}
+  - !task: {path: 'tweaks\performance\system.yml'}
+  - !task: {path: 'tweaks\performance\power.yml'}
+  - !task: {path: 'tweaks\performance\extreme.yml'}
+
+  # MODULE: visual + quality of life
+  - !writeStatus: {status: 'Applying visual and usability tweaks'}
+  - !task: {path: 'tweaks\visual\context-menu.yml'}
+  - !task: {path: 'tweaks\visual\taskbar.yml'}
+  - !task: {path: 'tweaks\visual\explorer.yml'}
+  - !task: {path: 'tweaks\visual\extras.yml'}
+  - !task: {path: 'tweaks\qol\system-info.yml'}
+  - !task: {path: 'tweaks\qol\shortcuts.yml'}
+  - !task: {path: 'tweaks\qol\updates.yml'}
+
+  # MODULE: security (opt-in extras; Defender re-enable/disable runs last among modules)
+  - !writeStatus: {status: 'Configuring security options'}
+  - !task: {path: 'tweaks\security\mitigations.yml'}
+  - !task: {path: 'tweaks\security\vbs.yml'}
+  - !task: {path: 'tweaks\security\defender-disable.yml'}
+  - !task: {path: 'tweaks\security\defender-reenable.yml'}
+
+  # Apply mirrored HKCU tweaks to the default user hive (single batched pass)
+  - !writeStatus: {status: 'Applying default user hive'}
+  - !powerShell:
+    command: '.\APPLYHIVE.ps1'
+    exeDir: true
+    wait: true
+    runas: currentUserElevated
+
+  # Finish - install report, re-enable notifications, execution policy, markers
+  - !task: {path: 'tweaks\ultraos\finish.yml'}
+
+  # Unload the default-user hive
+  - !powerShell:
+    command: 'reg unload HKU\AME_UserHive_Default'
+    oobe: false
+    wait: true

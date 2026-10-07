@@ -1,0 +1,107 @@
+---
+title: Extreme Privacy Extras
+description: >-
+  Deeper privacy lockdowns that only run on the Extreme preset - Microsoft account
+  restrictions, full location services off, presence sensing and camera/mic
+  force-deny, WPBT and telemetry-adjacent service kills.
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+# Every action in this file is gated by the file-level 'preset-extreme' option.
+option: 'preset-extreme'
+actions:
+  - !writeStatus: {status: 'Applying extreme privacy'}
+
+  # ------------------------------------------------------------------
+  # Microsoft account restrictions
+  # ------------------------------------------------------------------
+
+  # Block adding Microsoft accounts as Windows user accounts ("Users can't add
+  # Microsoft accounts"). WARNING: breaks MSA sign-in for Windows/Store account
+  # setup; in-app sign-ins (Store inside apps, Xbox, Office) still work and still
+  # sync (T1-f §4.13/§12.2). Balanced keeps MSA optional by design (Revi-style
+  # usability) - this is the Extreme stance.
+  # src: T1-f §4.13 disallow-ms-accounts.yml · matrix row 52 · preset: extreme
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\System', value: 'NoConnectedUser', data: '1', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Location services (extreme tier - the safe ConsentStore Deny + Find My
+  # Device off live in settings-privacy.yml; lfsvc/MapsBroker service disables
+  # live in T3-c services.yml)
+  # ------------------------------------------------------------------
+
+  # "Turn off location" policy (Win10-era Sensors.admx - still honored per
+  # admx.help heritage; T1-f flags for 26H2 verification)
+  # src: T1-f §4.7 · matrix rows 17/18 (extreme half) · preset: extreme
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\LocationAndSensors', value: 'DisableLocation', data: '1', type: REG_DWORD}
+
+  # Location sensor override GUID off (winutil WPFTweaksLocation)
+  # src: T1-f §4.7 · preset: extreme
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Sensor\Overrides\{BFA794E4-F964-4FDB-90F6-51056BFE4B44}', value: 'SensorPermissionState', data: '0', type: REG_DWORD}
+
+  # Offline maps auto-update off
+  # src: T1-f §4.7 · preset: extreme
+  - !registryValue: {path: 'HKLM\SYSTEM\Maps', value: 'AutoUpdateEnabled', data: '0', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # App privacy force-deny (0=user control, 1=force allow, 2=force deny)
+  # ------------------------------------------------------------------
+
+  # Presence sensing force-deny (wake-on-approach / auto-lock-on-leave stop;
+  # Balanced only sets the ConsentStore default - settings-privacy.yml)
+  # src: T1-f §4.7 (MS Learn CSP Privacy, AppPrivacy.admx) · matrix row 43 · preset: extreme
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\AppPrivacy', value: 'LetAppsAccessHumanPresence', data: '2', type: REG_DWORD}
+
+  # Camera + microphone force-deny. WARNING: apps can no longer use camera or
+  # microphone AT ALL (browsers, Zoom/Teams/Discord calls break) until reverted.
+  # src: T1-f §4.14 (MS Learn CSP Privacy) · matrix row 56 · preset: extreme
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\AppPrivacy', value: 'LetAppsAccessCamera', data: '2', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\AppPrivacy', value: 'LetAppsAccessMicrophone', data: '2', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Boot-time + background telemetry channels
+  # ------------------------------------------------------------------
+
+  # Windows Platform Binary Table (vendor boot-time code) execution off -
+  # security win (winutil WPFTweaksWPBT); some vendor anti-theft features break.
+  # T1-f matrix row 48 marks this B/X; per the build manifest it lives in this
+  # Extreme-only file (main agent may relocate it if Balanced coverage is wanted).
+  # src: T1-f §8 · matrix row 48 · preset: extreme
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager', value: 'DisableWpbtExecution', data: '1', type: REG_DWORD}
+
+  # WAP Push Message Routing Service off - classic community disable (MDM/Intune
+  # channel; ⚠ community-documented only, not in Atlas/winutil). Breaks enterprise
+  # enrollment scenarios; may not exist on all editions (tolerate absence).
+  # src: T1-f §2.1/§8 · matrix row 50 · preset: extreme
+  - !service: {name: 'dmwappushservice', operation: change, startup: 4, ignoreErrors: true}
+
+  # Wi-Fi Sense heritage keys (⚠ vestigial on Win11 - Wi-Fi Sense itself was
+  # removed; kept for compatibility, harmless)
+  # src: T1-f §8 · matrix row 51 · preset: extreme
+  - !registryValue: {path: 'HKLM\Software\Microsoft\PolicyManager\default\WiFi', value: 'AllowWiFiHotSpotReporting', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\Software\Microsoft\PolicyManager\default\WiFi', value: 'AllowAutoConnectToWiFiSenseHotspots', data: '0', type: REG_DWORD}
+
+  # UCPD service disable. ⚠ SECURITY TRADE-OFF: UCPD mitigates a BitLocker key
+  # exposure class (CVE-2022-37969-era); disabling trades that mitigation for
+  # control (01-architecture §7.3 explains why UltraOS otherwise never fights
+  # UCPD). The 'UCPD velocity' scheduled task disable belongs to T3-d.
+  # src: T1-f §2.1/§3 · matrix row 53 · preset: extreme
+  - !service: {name: 'UCPD', operation: change, startup: 4}
+
+  # Update Compliance / OneSettings auditing opt-outs (0 = disallow processing)
+  # src: T1-f §2.2 A17 (MS Learn CSP System) · preset: extreme
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\DataCollection', value: 'AllowUpdateComplianceProcessing', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\DataCollection', value: 'EnableOneSettingsAuditing', data: '0', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # NOT implemented in v1: matrix row 54 (Atlas NoTelemetry component CAB
+  # parity) - CBS component stripping needs Windows-only tooling and is v1.1
+  # roadmap (01-architecture §7.1).
+  #
+  # ⚠️ UNVERIFIED candidates - commented out until verified on a 26H2 box
+  # (T1-f §13.5 verification checklist):
+  # - HKLM\Software\Policies\Microsoft\Windows\DataCollection ->
+  #   FeedbackHubAlwaysSaveDiagnosticsLocally=1 / FeedbackHubDisableSharingFeedbackPublicly=1
+  #   (value names per ADMX FeedbackHub.admx unverified - T1-f §4.8)
+  # - HKLM\Software\Policies\Microsoft\Windows\DataCollection ->
+  #   DisableDiagnosticDataOptInSettings=1 (locks the Settings diagnostic-data
+  #   chooser; exact value name unverified - T1-f §2.2 A16)
+  # ------------------------------------------------------------------

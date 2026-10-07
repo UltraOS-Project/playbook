@@ -1,0 +1,93 @@
+---
+title: Telemetry Policies
+description: >-
+  Sets diagnostic-data, CEIP, feedback and data-collection policies to their most
+  private values, with the AllowTelemetry belt-and-braces layer at Balanced+.
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+actions:
+  - !writeStatus: {status: 'Applying telemetry policies'}
+
+  # ------------------------------------------------------------------
+  # Safe tier - registry-only, zero functional breakage, fully reversible
+  # ------------------------------------------------------------------
+
+  # Do not include the device name in diagnostic data
+  # src: T1-f §2.2 A8 · matrix row 15 · preset: safe
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\DataCollection', value: 'AllowDeviceNameInTelemetry', data: '0', type: REG_DWORD}
+
+  # Limit diagnostic log + dump collection (WER limited to kernel mini/user triage dumps)
+  # src: T1-f §2.2 A11-A12 (MS Learn CSP System) · matrix row 16 · preset: safe
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\DataCollection', value: 'LimitDiagnosticLogCollection', data: '1', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\DataCollection', value: 'LimitDumpCollection', data: '1', type: REG_DWORD}
+
+  # Feedback frequency (SIUF) - Windows never asks for feedback
+  # src: T1-f §4.8 (winutil WPFTweaksTelemetry) · matrix row 8 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Siuf\Rules', value: 'NumberOfSIUFInPeriod', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Siuf\Rules', value: 'PeriodInNanoSeconds', operation: delete}
+
+  # Turn off KMS client online AVS validation (no effect for retail/digital-license users)
+  # src: T1-f §9.1 · matrix row 22 · preset: safe
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows NT\CurrentVersion\Software Protection Platform', value: 'NoGenTicket', data: '1', type: REG_DWORD}
+
+  # Suppress post-feature-update OOBE privacy screens that re-enable defaults
+  # src: T1-f §4.10 · matrix row 12 · preset: safe
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\OOBE', value: 'DisablePrivacyExperience', data: '1', type: REG_DWORD}
+
+  # Delivery Optimization: LAN-only peering on Safe (0=Bypass at Balanced+, 1=LAN, 3=default)
+  # src: T1-f §8 · matrix row 20 · preset: safe
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization', value: 'DODownloadMode', data: '1', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Balanced+ tier - telemetry level and hard collection limits
+  # ------------------------------------------------------------------
+
+  # HONEST FLOOR (T1-f §2.2 + §12.1, MS Learn Policy CSP - AllowTelemetry):
+  # level 0 ("Security"/Diagnostic data off) is only honored on Enterprise/
+  # Education/Server. On Home/Pro it behaves as 1 (Required diagnostic data).
+  # UltraOS writes 0 anyway (harmless, future-proof if the edition is upgraded)
+  # AND stops the DiagTrack service/autologger (telemetry-services.yml), which
+  # is what actually prevents uploads on Home/Pro. Required WU/licensing/
+  # Defender cloud traffic remains regardless - see docs/FAQ.
+  # src: T1-f §2.2 A1-A4 · matrix row 25 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'AllowTelemetry', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # MaxTelemetryAllowed kept for Atlas parity (not in current CSP text - T1-f A4)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'MaxTelemetryAllowed', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'AllowTelemetry', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'AllowTelemetry', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Customer Experience Improvement Program (AppV + SQMClient legs)
+  # src: T1-f §9.3 disable-ceip.yml · matrix row 30 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\AppV\CEIP', value: 'CEIPEnable', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\SQMClient\Windows', value: 'CEIPEnable', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # AppCompat / PCA telemetry pipeline (AIT = Application Impact Telemetry,
+  # UAR = User Activity Reporter/Steps Recorder; PcaSvc service itself is
+  # disabled by T3-c's services.yml)
+  # src: T1-f §4.11 disable-pca.yml · matrix row 32 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat', value: 'AITEnable', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat', value: 'AllowTelemetry', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat', value: 'DisableEngine', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat', value: 'DisableInventory', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat', value: 'DisablePCA', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\AppCompat', value: 'DisableUAR', data: '1', type: REG_DWORD, option: '!preset-safe'}
+
+  # Diagnostic tracing + WDI performance-track (responsiveness events) off
+  # src: T1-f §4.11 · matrix row 33 · preset: balanced
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\Diagnostics\Performance', value: 'DisableDiagnosticTracing', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WDI\{9c5a40da-b965-4fc3-8781-88dd50a6299d}', value: 'ScenarioExecutionEnabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # A/B experimentation off (OS flighting experimentation, not user experiments)
+  # src: T1-f §4.11 disable-experimentation.yml · matrix row 33 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\System\AllowExperimentation', value: 'Value', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Block OneSettings service connections
+  # src: T1-f §2.2 A14 (MS Learn CSP System) · matrix row 38 · preset: balanced
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\DataCollection', value: 'DisableOneSettingsDownloads', data: '1', type: REG_DWORD, option: '!preset-safe'}
+
+  # Delivery Optimization: no peering at all (HTTP directly from Microsoft)
+  # src: T1-f §8 · matrix row 20 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization', value: 'DODownloadMode', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Do not fetch device metadata (icons/descriptions) from the network
+  # src: T1-f §8 (winutil WPFTweaksPreventDeviceMetadataFromNetwork) · matrix row 49 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Device Metadata', value: 'PreventDeviceMetadataFromNetwork', data: '1', type: REG_DWORD, option: '!preset-safe'}

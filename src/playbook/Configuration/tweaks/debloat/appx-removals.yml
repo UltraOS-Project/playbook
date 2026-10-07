@@ -1,0 +1,280 @@
+---
+title: Remove Bloatware Apps
+description: >-
+  Removes deprecated and unwanted AppX packages per preset tier (Safe = dead apps
+  only, Balanced = Atlas-parity minus usability losses, Extreme = aggressive set
+  with warnings) and deprovisions every removed family so Windows feature updates
+  cannot reinstall them. Almost everything removed here is Store-reinstallable -
+  see research/debloat-apps-research.md §9 and the install report for Store IDs.
+onUpgrade: false
+actions:
+  # =====================================================================================
+  # NEVER-REMOVE dependency families (T1-e §5.8). Removing any of these breaks the
+  # Store, winget, WebView2-dependent apps, Xbox sign-in or the OS shell. The local
+  # validator (scripts/validate-playbook.py PROTECTED_APPX) also refuses the core ones:
+  #   Microsoft.WindowsStore*          - reinstalling anything (the undo path) needs it
+  #   Microsoft.DesktopAppInstaller    - provides winget (rollback + reinstall)
+  #   Microsoft.Web.WebView2 (win32)   - runtime for Outlook/Widgets/Xbox/Photos edit
+  #                                      and many 3rd-party apps (T1-h §4.2 list)
+  #   Microsoft.VCLibs.140* / Microsoft.NET.Native.* / Microsoft.UI.Xaml.*
+  #   / Microsoft.WindowsAppRuntime.1_* - frameworks used by dozens of inbox apps
+  #   Microsoft.XboxIdentityProvider*  - Microsoft-account sign-in for games (winutil:
+  #                                      "may break Microsoft account sign-in")
+  #   Microsoft.Xbox.TCUI*             - MSA auth in games that do not need the Xbox app
+  #   MicrosoftWindows.Client.CBS, *StartMenuExperienceHost*, *ShellExperienceHost*,
+  #   *Windows.Search*, Microsoft.Windows.FileExplorer, Microsoft.Windows.InputApp,
+  #   Microsoft.Windows.SecHealthUI     - OS-critical / non-removable shell components
+  # Usability defaults we keep until Extreme: Calculator, Photos, Notepad, Paint,
+  # Terminal, Media Player, Snipping Tool. (winutil default-removes Calculator and
+  # Photos - we deliberately do NOT copy that; T1-e §5.1 "keep" rows.)
+  # =====================================================================================
+  - !writeStatus: {status: 'Removing bloatware apps'}
+  # src: T1-e §3.1 (Atlas appx.yml pattern, GPL-3.0 AtlasOS) · preset: safe (all tiers)
+
+  # Snapshot the current package families BEFORE any removal. The diff after all
+  # removals deprovisions exactly the families that disappeared (Atlas trick).
+  # Must run as the real user (Get-AppxPackage is per-user), not TrustedInstaller.
+  - !powerShell:
+    command: |
+      New-Item -ItemType Directory -Force -Path """$([Environment]::GetFolderPath('Windows'))\UltraOS""" | Out-Null
+      (Get-AppxPackage).PackageFamilyName |
+        Out-File """$([Environment]::GetFolderPath('Windows'))\UltraOS\AppxPackagesOld.txt"""
+    runas: currentUserElevated
+    wait: true
+  # src: T1-e §2.4 (Atlas appx.yml parity, GPL-3.0) · preset: safe (infrastructure)
+
+  # ============================ SAFE TIER (every preset) ===============================
+  # Deprecated / retired / dead apps only (T1-e §5.9 Safe). No usable app is touched.
+  # Most of these are already absent on 24H2+; the patterns exist to catch leftovers
+  # on systems upgraded from older builds (Atlas ships the same no-op patterns).
+
+  # Legacy consumer Teams (pre-23H2, dead) - kill before remove per T1-e §6.1
+  - !taskKill: {name: 'msteams*', ignoreErrors: true}
+  # src: T1-e §5.2 + §6.1 (Atlas kill-before-remove) · preset: safe
+  - !appx: {name: 'MicrosoftTeams*', type: family}
+  # src: T1-e §5.2 · preset: safe (legacy consumer Teams, not in 23H2+)
+
+  # Cortana app, retired by Microsoft (2024 EEA / 2025 fully; T1-e §8.13). Both real
+  # package IDs are swept: F5F10 (Store-era, 26H2-relevant) + F8F0 (Win10-era no-op).
+  - !appx: {name: 'Microsoft.549981C3F5F10*', type: family}
+  - !appx: {name: 'Microsoft.549981C3F8F0*', type: family}
+  # src: T1-e §8.13 · preset: safe
+
+  - !appx: {name: 'Microsoft.SkypeApp*', type: family}
+  # src: T1-e §5.1 · preset: safe (Skype UWP, delisted/retired)
+  - !appx: {name: 'Microsoft.Office.OneNote*', type: family}
+  # src: T1-e §5.1 · preset: safe (UWP OneNote delisted; win32 OneNote is separate)
+  - !appx: {name: 'Microsoft.MSPaint*', type: family}
+  # src: T1-e §5.1 · preset: safe (Paint 3D, delisted - Paint itself is kept)
+  - !appx: {name: 'Microsoft.Microsoft3DViewer*', type: family}
+  # src: T1-e §5.1 · preset: safe (3D Viewer, delisted)
+  - !appx: {name: 'Microsoft.MixedReality.Portal*', type: family}
+  # src: T1-e §5.1 · preset: safe (Mixed Reality Portal, delisted)
+  - !appx: {name: 'microsoft.windowscommunicationsapps*', type: family}
+  # src: T1-e §5.1 · preset: safe (Mail and Calendar - Microsoft removed it in 24H2)
+  - !appx: {name: 'Microsoft.Getstarted*', type: family}
+  # src: T1-e §5.1 + §8.10 · preset: safe (Tips, deprecated per Atlas; "Get Started")
+  - !appx: {name: 'Microsoft.XboxApp*', type: family}
+  # src: T1-e §5.1 · preset: safe (Xbox Console Companion, deprecated by MS - NOT the
+  # current Xbox app Microsoft.GamingApp, which is only touched in Extreme)
+
+  # ====================== BALANCED TIER (option: !preset-safe) =========================
+  # Atlas 35-family parity (T1-e §3.1) minus Snipping Tool, Edge (own opt-in file),
+  # Widgets (policy-disabled at lower tiers, appx removal is Extreme), Phone Link
+  # (Extreme special case) and the Xbox stack (Extreme, Game Pass warning).
+
+  # New AppX Teams (provisioned in 24H2+) - kill before remove per T1-e §6.1
+  - !taskKill: {name: 'ms-teams*', ignoreErrors: true, option: '!preset-safe'}
+  # src: T1-e §5.2 + §6.1 (Atlas) · preset: balanced
+  - !appx: {name: 'MSTeams*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.2 (Atlas appx.yml) · preset: balanced (Store reinstall XP8BT8DW290MPQ)
+  - !appx: {name: 'Microsoft.Copilot*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.4 + §8.1 (Atlas appx.yml) · preset: balanced
+  # NOTE: Copilot can be re-delivered by EdgeUpdate (25H2/26H2 unified-app rollout).
+  # The Copilot POLICIES (TurnOffWindowsCopilot, CopilotPWAPin) belong to the privacy
+  # module (tweaks\privacy\ai-features.yml, T3-b) and are NOT duplicated here.
+
+  # Consumer bloat (Atlas parity; all Store-reinstallable - T1-e §5.1)
+  - !appx: {name: 'Clipchamp.Clipchamp*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9P1J8S7CCWWT)
+  - !appx: {name: 'Disney.37853FC22B2CE*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Atlas + provisioned in 25H2/26H2 images) · preset: balanced
+  - !appx: {name: 'SpotifyAB.SpotifyMusic*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Atlas + provisioned in 25H2/26H2 images) · preset: balanced
+  - !appx: {name: 'Microsoft.ZuneVideo*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (Films & TV, 9WZDNCRFJ3P2)
+  - !appx: {name: 'MicrosoftCorporationII.MicrosoftFamily*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 (Atlas) · preset: balanced (Family Safety)
+  - !appx: {name: 'Microsoft.Windows.DevHome*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 + §8.8 · preset: balanced (deprecated by MS; reinstall blocker is in
+  # tweaks\debloat\reinstall-blockers.yml)
+  - !appx: {name: 'Microsoft.BingWeather*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9WZDNCRFJ3Q2)
+  - !appx: {name: 'Microsoft.BingNews*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9WZDNCRFHVFW)
+  - !appx: {name: 'Microsoft.BingSearch*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9NZBF4GT040C)
+  - !appx: {name: 'Microsoft.OutlookForWindows*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.3 + §8.5 · preset: balanced (new Outlook, shipped via Windows Update -
+  # the UScheduler_Oobe reinstall blocker lives in reinstall-blockers.yml; 9NRX63209R7B)
+  - !appx: {name: 'Microsoft.GetHelp*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 + §8.10 · preset: balanced (Atlas removes; trade-off: Win11Debloat
+  # rates GetHelp "unsafe" because support flows use it; reinstall 9PKDZBMV1H3T)
+  - !appx: {name: 'Microsoft.MicrosoftOfficeHub*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (Microsoft 365 / Office hub, 9WZDNCRD29V9)
+  - !appx: {name: 'Microsoft.MicrosoftStickyNotes*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (Atlas parity; 9NBLGGH4QGHW)
+  - !appx: {name: 'Microsoft.People*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (delisted, non-Store-reinstallable)
+  - !appx: {name: 'Microsoft.PowerAutomateDesktop*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9NFTCH6J7FHV)
+  - !appx: {name: 'Microsoft.Todos*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9NBLGGH5R558)
+  - !appx: {name: 'Microsoft.WindowsAlarms*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (Atlas removes the Clock app; reinstall
+  # 9WZDNCRFJ3PR - kept out of Safe because the app is still functional)
+  - !appx: {name: 'Microsoft.WindowsCamera*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (Atlas parity; reinstall 9WZDNCRFJBBG)
+  - !appx: {name: 'Microsoft.WindowsFeedbackHub*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (universal agreement; 9NBLGGH4R32N)
+  - !appx: {name: 'Microsoft.WindowsMaps*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (delisted, map service being shut down by MS)
+  - !appx: {name: 'Microsoft.WindowsSoundRecorder*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (9WZDNCRFHWKN)
+  - !appx: {name: 'Microsoft.News*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 · preset: balanced (legacy Win10-era News app - no-op on 26H2, kept
+  # as leftover-catcher from upgraded systems)
+  - !appx: {name: 'Microsoft.PCManager*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.1 + §5.9 · preset: balanced (PC Manager ships by default on 25H2+,
+  # duplicates UltraOS's purpose; ⚠️ Store ID for reinstall not verified in T1-e)
+
+  # Sponsored / 3rd-party apps (T1-e §5.7) - the six most common families only; the
+  # long tail never installs in the first place because the privacy module disables
+  # CloudContent/ContentDeliveryManager (tweaks\privacy\cloud-content.yml, T3-b).
+  - !appx: {name: 'BytedancePte.Ltd.TikTok*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Win11Debloat) · preset: balanced
+  - !appx: {name: 'FACEBOOK.FACEBOOK*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Win11Debloat/Sycnex) · preset: balanced
+  - !appx: {name: 'Facebook.Instagram*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Win11Debloat) · preset: balanced
+  - !appx: {name: '4DF9E0F8.Netflix*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Win11Debloat/Sycnex) · preset: balanced
+  - !appx: {name: 'AmazonVideo.PrimeVideo*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Win11Debloat) · preset: balanced
+  - !appx: {name: 'king.com.*', type: family, option: '!preset-safe'}
+  # src: T1-e §5.7 (Sycnex/Win11Debloat) · preset: balanced (Candy Crush Saga/Soda and
+  # the other King games in one family wildcard)
+
+  # ====================== EXTREME TIER (option: preset-extreme) ========================
+  # Aggressive additions with honest warnings. Everything here can break a workflow
+  # someone cares about - that is why it is not in the default Balanced preset.
+
+  # Widgets board trio (T1-e §5.5): at Safe/Balanced Widgets is only disabled via
+  # policy (visual module, T3-g); Extreme removes the packages outright.
+  - !taskKill: {name: 'widgets*', ignoreErrors: true, option: 'preset-extreme'}
+  # src: T1-e §6.1 (kill-before-remove pattern; Widgets.exe is the WebExperience host)
+  - !appx: {name: 'MicrosoftWindows.Client.WebExperience*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.5 · preset: extreme (Windows Web Experience Pack - the Widgets feed)
+  - !appx: {name: 'Microsoft.WidgetsPlatformRuntime*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.5 (winutil WPFTweaksWidget) · preset: extreme
+  - !appx: {name: 'Microsoft.StartExperiencesApp*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.5 · preset: extreme (Start/Widgets experiences app on 25H2+;
+  # reinstall 9PC1H9VN18CM)
+
+  # Phone Link ecosystem - see the special case below for why YourPhone never uses !appx
+  - !taskKill: {name: 'PhoneExperienceHost*', ignoreErrors: true, option: 'preset-extreme'}
+  # src: T1-e §6.1 (kill-before-remove; PhoneExperienceHost = Phone Link process)
+  - !appx: {name: 'MicrosoftWindows.CrossDevice*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 + §8.7 · preset: extreme (Cross Device Experience Host; winutil
+  # warning: removal disables phone-screen mirroring / file transfer / hotspot
+  # handoff pages in Settings - that is acceptable in Extreme, which removes Phone
+  # Link anyway; reinstall 9NTXGKQ8P7N0)
+
+  # Phone Link itself - NEVER via !appx: AME Wizard/ame-assassin removal breaks the
+  # Cross Device Experience Host installation flow (Atlas comment verbatim in T1-e
+  # §8.7). Plain PowerShell Remove-AppxPackage + deprovisioning instead.
+  - !powerShell:
+    command: |
+      Get-AppxPackage -AllUsers Microsoft.YourPhone* | Remove-AppxPackage -AllUsers
+      Get-AppxProvisionedPackage -Online | Where-Object { $_.DisplayName -eq 'Microsoft.YourPhone' } | Remove-AppxProvisionedPackage -Online
+    runas: currentUserElevated
+    wait: true
+    option: 'preset-extreme'
+  # src: T1-e §8.7 (Atlas appx.yml + AtlasDesktop script) · preset: extreme
+  # (reinstall 9NMPJ99VJBWV; the deprovision-diff below also covers this family)
+
+  # Xbox stack - ⚠️ GAME PASS WARNING (T1-e §5.6 + T1-h §6.2): removing Microsoft.GamingApp
+  # removes the Xbox app used to install/launch Game Pass titles, and Xbox login
+  # (0x89235107-class issues) depends on the identity stack below. Xbox SERVICES are
+  # intentionally kept by the services module (T3-c/T1-g: XblAuthManager entitlement
+  # checks, XblGameSave saves). NEVER remove Microsoft.XboxIdentityProvider* or
+  # Microsoft.Xbox.TCUI* - they are on the NEVER-REMOVE list above (MSA sign-in for
+  # games breaks; enforced by the validator).
+  - !appx: {name: 'Microsoft.GamingApp*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.6 · preset: extreme (Xbox app; reinstall 9MV0B5HZVK9Z)
+  - !appx: {name: 'Microsoft.XboxGamingOverlay*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.6 · preset: extreme (Game Bar overlay Win+G; reinstall 9NZKPSTSNW4P;
+  # the performance module turns GameDVR off by policy but does not remove the app)
+  - !appx: {name: 'Microsoft.XboxGameOverlay*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.6 (Win11Debloat optional tier) · preset: extreme
+  - !appx: {name: 'Microsoft.XboxSpeechToTextOverlay*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.6 (Win11Debloat "unsafe" tier) · preset: extreme (game speech overlay)
+
+  # Individually functional apps that only leave in Extreme
+  - !appx: {name: 'Microsoft.MicrosoftSolitaireCollection*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 · preset: extreme (Atlas removes Solitaire by default; UltraOS keeps
+  # it through Balanced for Revi-style usability - main-agent preset matrix decision)
+  - !appx: {name: 'Microsoft.ScreenSketch*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 + §8.9 · preset: extreme (⚠️ Snipping Tool: Win+Shift+S screen
+  # capture stops working; reinstall from Store 9MZ95KL8MR0L - listed in the report)
+  - !appx: {name: 'MicrosoftCorporationII.QuickAssist*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 + §8.10 · preset: extreme (remote-assist/support flows; Atlas keeps
+  # it, winutil/Win11Debloat remove it; reinstall 9P7BP5VNWKX5)
+  - !appx: {name: 'Microsoft.ZuneMusic*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 · preset: extreme (Media Player, the default music app; reinstall
+  # 9WZDNCRFJ3PT)
+  - !appx: {name: 'Microsoft.Windows.AIHub*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 (Win11Debloat safe tier) · preset: extreme (Copilot+ PC "AI Hub";
+  # no-op on non-AI PCs. Recall/CoreAI stripping belongs to the privacy module's
+  # opt-strip-recall flow (tweaks\privacy\ai-features.yml, T3-b) - not duplicated here)
+  - !appx: {name: 'Microsoft.Whiteboard*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 (Win11Debloat optional tier) · preset: extreme
+  - !appx: {name: 'Microsoft.M365Companions*', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.3 (Win11Debloat optional tier) · preset: extreme (⚠️ UNVERIFIED: the
+  # M365 companion app family name and its 26H2 presence - harmless no-op if absent)
+  - !appx: {name: 'Ink.Handwriting.Main.Store.en-US1.0', type: family, option: 'preset-extreme'}
+  # src: T1-e §5.1 + §3.1 (Atlas exact-package pattern) · preset: extreme (en-US
+  # handwriting model store package; pen users may want it back via Settings >
+  # Bluetooth & devices > Pen & Windows Ink)
+
+  # ===================== DEPROVISION DIFF (all tiers, after removals) ==================
+  # Create HKLM\...\AppxAllUserStore\Deprovisioned\<PackageFamilyName> keys for every
+  # family that disappeared during this run - the Microsoft-documented way to keep
+  # removed apps from returning after feature updates (T1-e §2.4, MS Learn:
+  # windows/application-management/remove-provisioned-apps-during-update).
+  # Tightened vs Atlas: only the '<=' side (existed before, gone now) is taken, so a
+  # package ADDED mid-run (e.g. Copilot re-pushed by EdgeUpdate) can never be
+  # deprovisioned by accident.
+  - !powerShell:
+    command: |
+      $a = """$([Environment]::GetFolderPath('Windows'))\UltraOS\AppxPackagesOld.txt"""
+      $removed = (diff (gc $a) ((Get-AppxPackage).PackageFamilyName)) |
+        Where-Object { $_.SideIndicator -eq '<=' } | Select-Object -ExpandProperty InputObject
+      $removed | ForEach-Object { New-Item -Path "HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned" -Name $_ -Force }
+      if ($removed) { $removed | Set-Content """$([Environment]::GetFolderPath('Windows'))\UltraOS\Backups\appx-removed.txt""" }
+      Remove-Item $a -Force
+    runas: currentUserElevated
+    wait: true
+  # src: T1-e §2.4 (Atlas appx.yml, GPL-3.0) + §9.3 (undo: delete these keys to allow
+  # re-provisioning) · preset: safe (infrastructure). The saved appx-removed.txt list
+  # feeds the install report and UNDO.ps1 (T3-i).
+
+  # Clear shell component caches after mass removal (Atlas parity; AME docs recommend
+  # exactly these after mass AppX removals). Start menu cache is included here because
+  # no other UltraOS module owns it (Atlas clears it in a later file instead).
+  - !appx: {operation: clearCache, name: '*MicrosoftWindows.Client.CBS*'}
+  - !appx: {operation: clearCache, name: '*Microsoft.Windows.Search*'}
+  - !appx: {operation: clearCache, name: '*Microsoft.Windows.SecHealthUI*'}
+  - !appx: {operation: clearCache, name: '*Microsoft.Windows.StartMenuExperienceHost*'}
+  # src: T1-e §6.4 (Atlas appx.yml + docs.amelabs.net/developers/actions/Appx.html) ·
+  # preset: safe (harmless cache clears)

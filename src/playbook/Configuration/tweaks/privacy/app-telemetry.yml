@@ -1,0 +1,72 @@
+---
+title: Application Telemetry Opt-outs
+description: >-
+  Opts out of NVIDIA Control Panel, Microsoft Office, .NET CLI and PowerShell 7
+  telemetry, turns off MSRT and Edge telemetry and stops Defender sample uploads
+  with an explicit security trade-off note.
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+actions:
+  - !writeStatus: {status: 'Disabling app telemetry'}
+
+  # ------------------------------------------------------------------
+  # Safe tier
+  # ------------------------------------------------------------------
+
+  # NVIDIA Control Panel telemetry opt-out (no-op if NVIDIA software absent)
+  # src: T1-f §7/§9.3 disable-nvidia-telemetry.yml · matrix row 24 · preset: safe
+  - !registryValue: {path: 'HKCU\Software\NVIDIA Corporation\NVControlPanel2\Client', value: 'OptInOrOutPreference', data: '0', type: REG_DWORD}
+
+  # .NET CLI + PowerShell 7 telemetry opt-outs (documented env vars; .NET at User
+  # scope per Atlas setx, PowerShell 7 at Machine scope per winutil)
+  # src: T1-f §7 (learn.microsoft.com/dotnet/core/tools/telemetry) · matrix row 23 · preset: safe
+  - !powerShell:
+    command: |
+      [Environment]::SetEnvironmentVariable('DOTNET_CLI_TELEMETRY_OPTOUT', '1', 'User')
+      [Environment]::SetEnvironmentVariable('POWERSHELL_TELEMETRY_OPTOUT', '1', 'Machine')
+      exit 0
+    runas: currentUserElevated
+    wait: true
+
+  # ------------------------------------------------------------------
+  # Balanced+ tier
+  # ------------------------------------------------------------------
+
+  # Microsoft Office 2016+/M365 telemetry + Customer Experience Program
+  # src: T1-f §7/§9.3 disable-office-telemetry.yml · preset: balanced
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\office\16.0\common', value: 'sendcustomerdata', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\office\16.0\common', value: 'qmenable', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\office\common\clienttelemetry', value: 'sendtelemetry', data: '3', type: REG_DWORD, option: '!preset-safe'}
+
+  # MSRT (Malicious Software Removal Tool) telemetry off
+  # src: T1-f §9.2 disable-msrt-telemetry.yml · matrix row 44 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\MRT', value: 'DontReportInfectionInformation', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\RemovalTools\MpGears', value: 'HeartbeatTrackingIndex', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\RemovalTools\MpGears', value: 'SpyNetReportingLocation', data: '', type: REG_MULTI_SZ, option: '!preset-safe'}
+
+  # Defender sample submission: 2 = never send samples.
+  # TRADE-OFF (T1-f §7/§12.3): this weakens cloud protection - MAPS signature
+  # queries and Security Intelligence updates still flow (and are needed).
+  # Defender may be toggled off during install (wizard requirement), so tolerate
+  # failure; the UltraOS folder Defender toggle re-applies preferences.
+  # src: T1-f §7 (winutil WPFTweaksTelemetry) · matrix row 45 · preset: balanced
+  - !powerShell:
+    command: |
+      try { Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction Stop } catch { }
+      exit 0
+    wait: true
+    option: '!preset-safe'
+
+  # Smart App Control off. TRADE-OFF: SAC validation sends app-reputation data
+  # to Microsoft; disabling removes that reputation-check layer (Atlas removes
+  # it for this reason). On 26H2 SAC can be re-toggled in Settings without a
+  # clean install (T1-d2 §3.2), so this stays reversible there.
+  # src: T1-f §7 (Atlas components.yml) · matrix row 46 · preset: balanced
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\CI\Policy', value: 'VerifiedAndReputablePolicyState', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Edge telemetry (only effective if Edge is kept - removal is T3-a's
+  # debloat/edge-removal.yml opt-in extra, do not duplicate here)
+  # src: T1-f §7 (winutil WPFTweaksEdgeDebloat) · matrix row 47 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'DiagnosticData', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'PersonalizationReportingEnabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'UserFeedbackAllowed', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Edge', value: 'ConfigureDoNotTrack', data: '1', type: REG_DWORD, option: '!preset-safe'}

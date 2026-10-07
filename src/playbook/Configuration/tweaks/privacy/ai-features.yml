@@ -1,0 +1,68 @@
+---
+title: AI Feature Controls
+description: >-
+  Disables Recall snapshots and the Copilot taskbar button/policy on 24H2+ builds,
+  and fully strips Recall (component, enablement and AI fabric service) when the
+  opt-in "Strip Recall/AI features" extra is selected.
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+# Copilot APP removal (Microsoft.Copilot*, CoreAI appx) is owned by T3-a's
+# debloat files - intentionally not duplicated here.
+builds: [ '>=26100' ]
+actions:
+  - !writeStatus: {status: 'Configuring AI privacy'}
+
+  # ------------------------------------------------------------------
+  # Safe tier - Recall snapshots off (fully reversible; enabling this policy
+  # also deletes previously saved snapshots per MS Learn)
+  # ------------------------------------------------------------------
+
+  # Turn off saving snapshots for use with Recall (24H2 with KB5055627+,
+  # i.e. all builds >= 26100.3915 - covered by the file-level builds gate)
+  # src: T1-f §6.2 (MS Learn CSP WindowsAI, Atlas Disable Recall Support.cmd) · matrix row 39 · preset: safe
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'DisableAIDataAnalysis', data: '1', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Safe tier - Copilot button + policy
+  # TurnOffWindowsCopilot is officially deprecated ("isn't for the new Copilot
+  # experience ... gradually rolling out" - MS Learn) and 26H2 de-integrates
+  # Copilot further (T1-d2 §3.4), so this is belt-and-braces only. Value kept
+  # for parity; harmless if the policy is removed in a future build.
+  # ------------------------------------------------------------------
+
+  # src: T1-f §6.1 · matrix row 40 · preset: safe
+  - !registryValue: {path: 'HKCU\Software\Policies\Microsoft\Windows\WindowsCopilot', value: 'TurnOffWindowsCopilot', data: '1', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'ShowCopilotButton', data: '0', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # "Strip Recall/AI features" extra (opt-in checkbox, never preset-gated -
+  # 01-architecture §4). Matrix row 42 mapped to this opt-in by design:
+  # component stripping is intentionally an explicit user choice.
+  # ------------------------------------------------------------------
+
+  # Strongest Recall kill switch: component disabled + bits removed +
+  # previously saved snapshots deleted. Value name inferred from the CSP
+  # policy name (T1-f §6.2 flags it for verification on a test box).
+  # src: T1-f §6.2 (MS Learn CSP WindowsAI) · matrix row 42 · option: opt-strip-recall
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'AllowRecallEnablement', data: '0', type: REG_DWORD, option: 'opt-strip-recall'}
+
+  # Remove the Recall Feature-on-Demand (only present on Copilot+-class
+  # hardware - tolerate absence). Winutil WPFTweaksWindowsAI mechanism.
+  # src: T1-f §6.2/§7 · matrix row 42 · option: opt-strip-recall
+  - !powerShell:
+    command: |
+      Disable-WindowsOptionalFeature -Online -FeatureName 'Recall' -NoRestart -ErrorAction SilentlyContinue | Out-Null
+      exit 0
+    wait: true
+    option: 'opt-strip-recall'
+
+  # Windows AI Fabric service (24H2+ on-device AI backend for Recall/
+  # Cocreator). Service may not exist on non-AI hardware - tolerate absence.
+  # src: T1-f §2.1/§6.2 (winutil WPFTweaksWindowsAI) · matrix row 41 · option: opt-strip-recall
+  - !service: {name: 'WSAIFabricSvc', operation: change, startup: 4, ignoreErrors: true, option: 'opt-strip-recall'}
+
+  # ------------------------------------------------------------------
+  # 26H2 candidates - Insider-only at research time, intentionally NOT set.
+  # Revisit at 26H2 RTM (T1-f §6.3, T1-d2 §5.2 - Settings AI agent):
+  #   HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI -> DisableSettingsAgent=1
+  #   HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI -> DisableClickToDo / DisableCocreator
+  # ------------------------------------------------------------------

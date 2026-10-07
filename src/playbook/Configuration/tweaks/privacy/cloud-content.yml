@@ -1,0 +1,116 @@
+---
+title: Disable Cloud Content and Ads
+description: >-
+  Turns off suggested apps, tips, subscribed content, sync-provider ads, Spotlight
+  cloud content, widgets feeds, settings sync and Bing/web search in Start.
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+# Re-applied on upgrade runs by design: 26H2 feature updates reset some CDM values
+# (T1-f §11 implementation notes). DisableWindowsConsumerFeatures (machine-wide
+# sponsored-app hard block) is owned by T3-a debloat/reinstall-blockers.yml per the
+# 03-build-manifest coordination note - not duplicated here.
+actions:
+  - !writeStatus: {status: 'Blocking cloud content and ads'}
+
+  # ------------------------------------------------------------------
+  # Safe tier - Content Delivery Manager (suggested apps/tips/ads)
+  # ------------------------------------------------------------------
+
+  # src: T1-f §5.5 config-content-delivery.yml · matrix row 9 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'ContentDeliveryAllowed', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'FeatureManagementEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContentEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'RemediationRequired', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'OemPreInstalledAppsEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'PreInstalledAppsEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'PreInstalledAppsEverEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SilentInstalledAppsEnabled', data: '0', type: REG_DWORD}
+  # Windows welcome experience
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-310093Enabled', data: '0', type: REG_DWORD}
+  # Lock screen fun facts/tips/overlay
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-338387Enabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'RotatingLockScreenOverlayEnabled', data: '0', type: REG_DWORD}
+  # Suggestions in Start
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-338388Enabled', data: '0', type: REG_DWORD}
+  # Tips/tricks/suggestion notifications
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-338389Enabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SoftLandingEnabled', data: '0', type: REG_DWORD}
+  # Suggested content in the Settings app
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-338393Enabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-353694Enabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SubscribedContent-353696Enabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\ContentDeliveryManager', value: 'SystemPaneSuggestionsEnabled', data: '0', type: REG_DWORD}
+
+  # "Show me notifications in the Settings app" off
+  # src: T1-f §5.5 · matrix row 9 · preset: safe
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\SystemSettings\AccountNotifications', value: 'EnableAccountNotifications', data: '0', type: REG_DWORD}
+
+  # OneDrive/sync-provider notifications ("ads in File Explorer") off
+  # src: T1-f §5.3 · matrix row 10 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'ShowSyncProviderNotifications', data: '0', type: REG_DWORD}
+
+  # "Suggested ways to finish setting up your device" (SCOOBE) off
+  # src: T1-f §5.4 · matrix row 11 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\UserProfileEngagement', value: 'ScoobeSystemSettingEnabled', data: '0', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Safe tier - Bing/web search in Start + search highlights
+  # (one of the most-wanted privacy toggles; fully reversible. The BingSearch
+  # appx removal is T3-a's debloat territory; the taskbar search icon style
+  # is T3-g's taskbar.yml - not duplicated here.)
+  # ------------------------------------------------------------------
+
+  # src: T1-f §5.7 search-settings.yml · matrix row 13 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search', value: 'BingSearchEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsAADCloudSearchEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsDeviceSearchHistoryEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsMSACloudSearchEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'SafeSearchMode', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search', value: 'ConnectedSearchUseWeb', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search', value: 'DisableWebSearch', data: '1', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search', value: 'AllowSearchToUseLocation', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Search', value: 'EnableDynamicContentInWSB', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\Explorer', value: 'DisableSearchBoxSuggestions', data: '1', type: REG_DWORD}
+  # Search highlights (web content in the search box) off
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\SearchSettings', value: 'IsDynamicSearchBoxEnabled', data: '0', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Balanced+ tier
+  # ------------------------------------------------------------------
+
+  # Spotlight cloud content block. Trade-off: Spotlight/lock-screen content goes
+  # static. Safe users keep the rotating Spotlight wallpaper but lose suggestions
+  # through the CDM block above (T1-f §5.6).
+  # src: T1-f §5.6 · matrix row 34 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableCloudOptimizedContent', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableWindowsSpotlightFeatures', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableWindowsSpotlightWindowsWelcomeExperience', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableWindowsSpotlightOnActionCenter', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableWindowsSpotlightOnSettings', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableThirdPartySuggestions', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  # Hide the "suggested" cloud-content desktop icon
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\HideDesktopIcons\NewStartPanel', value: '{2cc5ca98-6485-489a-920e-b3e88a6ccce3}', data: '1', type: REG_DWORD, option: '!preset-safe'}
+
+  # Widgets / News and Interests feeds off. (The WebExperience widgets appx
+  # removal is T3-a's extreme tier; the taskbar widgets button is T3-g's
+  # taskbar.yml - registry policy only here.)
+  # src: T1-f §5.8 · matrix row 35 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Feeds', value: 'EnableFeeds', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Dsh', value: 'AllowNewsAndInterests', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Settings sync ("Windows Backup") off. Trade-off: theme/passwords sync stops.
+  # Policies do not disable the Settings UI toggles - cosmetic limitation (Atlas).
+  # src: T1-f §5.1 disable-setting-sync.yml · matrix row 36 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\SettingSync', value: 'DisableSettingSync', data: '2', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\SettingSync', value: 'DisableSettingSyncUserOverride', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\SettingSync', value: 'DisableSyncOnPaidNetwork', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\SettingSync', value: 'DisableWindowsSettingSync', data: '2', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SettingSync\Groups\Personalization', value: 'Enabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SettingSync\Groups\BrowserSettings', value: 'Enabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SettingSync\Groups\Credentials', value: 'Enabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SettingSync\Groups\Accessibility', value: 'Enabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SettingSync\Groups\Windows', value: 'Enabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\SettingSync', value: 'SyncPolicy', data: '5', type: REG_DWORD, option: '!preset-safe'}
+
+  # Message service cloud sync off
+  # src: T1-f §5.2 · matrix row 37 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Messaging', value: 'AllowMessageSync', data: '0', type: REG_DWORD, option: '!preset-safe'}

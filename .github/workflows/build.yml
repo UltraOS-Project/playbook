@@ -1,0 +1,63 @@
+name: Build Playbook
+
+# UltraOS packaging CI - mirrors the local final-assembly pipeline:
+#   lint (Atlas-relaxed yamllint) -> icons (make-artifacts.py)
+#   -> structure validation (validate-playbook.py) -> .apbx (build-playbook.sh)
+#   -> dist/ artifact upload.
+# Spec: research/execution-performance-packaging.md §4.3 + 03-build-manifest.md (T3-l).
+
+on:
+  push:
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '.github/workflows/build.yml'
+  pull_request:
+    paths:
+      - 'src/**'
+      - 'scripts/**'
+      - '.github/workflows/build.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Validate and package (.apbx)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install build tooling
+        run: |
+          python -m pip install --upgrade pip
+          pip install pyyaml pillow yamllint
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq zip unzip
+
+      # Same relaxed ruleset string as Atlas CI (.github/workflows/apbx.yaml)
+      - name: Lint YAML (Atlas-relaxed ruleset)
+        run: 'yamllint -d "{extends: relaxed, rules: {empty-lines: disable, line-length: disable, new-line-at-end-of-file: disable, trailing-spaces: disable, new-lines: {type: platform}}}" .'
+
+      - name: Generate icon artifacts
+        run: python3 scripts/make-artifacts.py
+
+      - name: Validate playbook structure
+        run: python3 scripts/validate-playbook.py --strict --stats
+
+      - name: Build .apbx and release folder
+        run: bash scripts/build-playbook.sh
+
+      - name: Upload dist artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ultraos-playbook-dist
+          path: dist/
+          if-no-files-found: error

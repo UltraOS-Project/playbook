@@ -1,0 +1,98 @@
+---
+title: Gaming and GameDVR
+description: >-
+  Disables GameDVR background recording and Game Bar popups, configures MMCSS
+  scheduling for lower latency, and stops UWP apps from running in the background.
+  Game Mode is intentionally left enabled.
+# Balanced tier: runs on Balanced and Extreme presets, skipped on Safe (01-architecture §4)
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Optimizing gaming and GameDVR settings'}
+
+  # Game Mode stays ON on purpose: it suppresses Windows Update installs and other
+  # background work while a game is in the foreground (real benefit, no measurable
+  # cost - modern consensus). Atlas does not touch it either.
+  # src: T1-g §3.3 · preset: balanced
+
+  # --- GameDVR / background capture off --------------------------------------
+  # The Xbox Game Bar APP itself is NOT removed here (appx removal is owned by
+  # tweaks/debloat/appx-removals.yml, T3-a). These values stop background capture
+  # and the Game Bar overlay/tips while keeping the app installed and functional.
+  # src: T1-g §3.1 (Atlas tweaks/performance/disable-game-bar.yml) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_Enabled'
+    data: '0'
+    type: REG_DWORD
+
+  # Per-user capture toggle (Settings > Gaming > Captures)
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\GameDVR'
+    value: 'AppCaptureEnabled'
+    data: '0'
+    type: REG_DWORD
+
+  # Game Bar tips and controller-button popup off
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\GameBar'
+    value: 'GamePanelStartupTipIndex'
+    data: '3'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\GameBar'
+    value: 'ShowStartupPanel'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\GameBar'
+    value: 'UseNexusForGameBarEnabled'
+    data: '0'
+    type: REG_DWORD
+
+  # Game Bar Presence Writer (auto-spawning background process in games) off
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\Windows.Gaming.GameBar.PresenceServer.Internal.PresenceWriter'
+    value: 'ActivationType'
+    data: '0'
+    type: REG_DWORD
+
+  # Policy: Windows Game Recording and Broadcasting off (also turns GameDVR off machine-wide)
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\GameDVR'
+    value: 'AllowGameDVR'
+    data: '0'
+    type: REG_DWORD
+  # PolicyManager equivalent - policy registry keys are honored on Home and Pro alike
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\ApplicationManagement\AllowGameDVR'
+    value: 'value'
+    data: '0'
+    type: REG_DWORD
+
+  # --- MMCSS -------------------------------------------------------------------
+  # SystemResponsiveness 10 (stock desktop value is 20): reserves 90% of CPU for
+  # multimedia/gaming threads instead of 80%. 10 is the sane floor - the community
+  # "0" value starves system maintenance threads and is rejected.
+  # src: T1-g §3.4 (Atlas config-mmcss.yml) ·
+  # https://learn.microsoft.com/en-us/windows/win32/procthread/multimedia-class-scheduler-service · preset: balanced
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
+    value: 'SystemResponsiveness'
+    data: '10'
+    type: REG_DWORD
+
+  # --- Background apps off -------------------------------------------------------
+  # Stops UWP/packaged apps from running in the background. Trade-off: store-app
+  # notifications, alarms and Phone Link sync stop arriving while idle. The global
+  # values are honored on 24H2 ⚠️ verify behavior on 26H2 (T1-g §6.10).
+  # src: T1-g §6.10 (Atlas disable-background-apps.yml) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\BackgroundAccessApplications'
+    value: 'GlobalUserDisabled'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Search'
+    value: 'BackgroundAppGlobalToggle'
+    data: '0'
+    type: REG_DWORD

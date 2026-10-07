@@ -1,0 +1,43 @@
+---
+title: UltraOS Start
+description: Prepares the system for deployment - cleans up old UltraOS installs, mutes notifications during deployment and writes setup markers
+actions:
+  # Kill any processes that may hold locks inside an old UltraOS folder (upgrade path)
+  - !powerShell:
+    command: |
+      $windir = [Environment]::GetFolderPath('Windows')
+      if (Test-Path "$windir\UltraOS") {
+          Get-Process | Where-Object { $_.Path -like "$windir\UltraOS*" } -ErrorAction SilentlyContinue |
+              Stop-Process -Force -ErrorAction SilentlyContinue
+      }
+      exit 0
+    wait: true
+    oobe: false
+    onUpgrade: true
+
+  # Remove any old UltraOS folder (recreated later by copy-folders.yml)
+  - !powerShell:
+    command: |
+      $windir = [Environment]::GetFolderPath('Windows')
+      Remove-Item -LiteralPath "$windir\UltraOS" -Force -Recurse -ErrorAction SilentlyContinue
+      exit 0
+    wait: true
+    oobe: false
+    onUpgrade: true
+
+  # Mute toast notifications while deploying (re-enabled in finish.yml)
+  # src: Atlas custom.yml pattern (GPL-3.0) · preset: all
+  - !powerShell:
+    command: |
+      Set-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PushNotifications' -Name 'ToastEnabled' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+      Set-ItemProperty -Path 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings' -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 0 -Type DWord -ErrorAction SilentlyContinue
+      exit 0
+    runas: currentUserElevated
+    wait: true
+
+  # Write setup markers (read by the UltraOS folder toggles, report and undo tooling)
+  - !registryKey: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', operation: add}
+  - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Version', data: '1.0.0', type: REG_SZ}
+  - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Preset', data: 'safe', type: REG_SZ, option: 'preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Preset', data: 'balanced', type: REG_SZ, option: 'preset-balanced'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\UltraOS\SetupOptions', value: 'Preset', data: 'extreme', type: REG_SZ, option: 'preset-extreme'}

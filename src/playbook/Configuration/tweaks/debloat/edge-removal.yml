@@ -1,0 +1,155 @@
+---
+title: Remove Microsoft Edge
+description: >-
+  Opt-in extra (Remove Microsoft Edge checkbox): unlocks Edge for removal via the
+  EdgeUpdateDev AllowUninstall registry value and the BrowserReplacement stub, runs
+  Edge's own setup.exe uninstaller, sweeps the Edge AppX families (legacy UWP stub,
+  Game Assist, DevTools Client) and writes Deprovisioned keys so Windows Update
+  cannot bring Edge back. WebView2 is never touched. Reinstall:
+  winget install Microsoft.Edge --source winget.
+option: 'opt-uninstall-edge'
+onUpgrade: false
+actions:
+  # =====================================================================================
+  # RISKS, documented honestly (T1-h §4 + T1-h2 §9.2 + T1-e §8.12):
+  # - Update-loop: "Removing Edge may cause update failure loop. Install Edge, install
+  #   all Windows updates, then remove Edge." (ShadowWhisperer/Remove-MS-Edge README).
+  #   UltraOS keeps Windows Update fully enabled - if a cumulative update fails after
+  #   Edge removal, reinstall Edge, update, remove again.
+  # - UCPD: community-reported to interfere with programmatic Edge removal on some
+  #   builds (⚠️ causality unverified - T1-e §8.12). UltraOS never writes UserChoice
+  #   file-association keys, so the UCPD driver stays enabled (01-architecture §7.3).
+  #   If the uninstaller is gated, re-run Executables\EDGE-UNLOCK.ps1 from an elevated
+  #   PowerShell (docs/TROUBLESHOOTING.md).
+  # - EdgeUpdate respawn (Atlas #1631, verified): the two MicrosoftEdgeUpdate machine
+  #   scheduled tasks can re-create Edge after reboot - disabled at the end of this file.
+  # - WebView2 stays: Outlook, Widgets, Xbox sign-in, Photos edit and many 3rd-party
+  #   apps depend on it (T1-h §4.2 dependency list).
+  # - EEA regions: the BrowserReplacement stub is what unlocks uninstallation outside
+  #   the EU DMA flow (winutil/ReviOS mechanism idea, T1-h2 §9.2; implemented from
+  #   scratch in EDGE-UNLOCK.ps1 - no Revi code, CC BY-SA respected).
+  # Mechanism per T1-h2: AllowUninstall unlock -> setup.exe --uninstall
+  # --system-level --force-uninstall -> AppX sweep -> Deprovisioned keys.
+  # =====================================================================================
+  - !writeStatus: {status: 'Removing Microsoft Edge'}
+  # src: T1-h2 §9.2 + T1-e §8.12 · option: opt-uninstall-edge
+
+  # Kill the Edge ecosystem first (Revi taskKill choreography, T1-h2 §9.2; process
+  # names verified there) so nothing re-launches or locks files mid-removal.
+  - !taskKill: {name: 'msedge*', ignoreErrors: true}
+  # src: T1-h2 §9.2 (Revi app-win32.yml choreography, idea reuse) · option: opt-uninstall-edge
+  - !taskKill: {name: 'MicrosoftEdgeUpdate*', ignoreErrors: true}
+  # src: T1-h2 §9.2 · option: opt-uninstall-edge (Edge updater service host)
+  - !taskKill: {name: 'setup*', pathContains: '\Edge', ignoreErrors: true}
+  # src: T1-h2 §9.2 (Revi kills setup.exe whose path contains \Edge) · option: opt-uninstall-edge
+
+  # --- Unlock step 1: AllowUninstall (Win11Debloat method B + Revi, written in BOTH
+  # registry views so 32-bit and 64-bit Edge builds see it). Engine writes the raw
+  # key path, so the WOW6432Node path is the 32-bit view location.
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\EdgeUpdateDev'
+    value: 'AllowUninstall'
+    data: ''
+    type: REG_SZ
+  # src: T1-e §8.12 (Win11Debloat Invoke-ForceRemoveEdge) + T1-h2 §9.2 (Revi) · option: opt-uninstall-edge
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdateDev'
+    value: 'AllowUninstall'
+    data: ''
+    type: REG_SZ
+  # src: T1-e §8.12 + T1-h2 §9.2 · option: opt-uninstall-edge
+
+  # --- Unlock step 2: drop the NoRemove flag from the Edge uninstall registrations
+  # (both views; delete is a silent no-op when absent - engine-verified behavior).
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft Edge'
+    value: 'NoRemove'
+    operation: delete
+  # src: T1-h2 §9.2 (Revi EDGE.ps1 mechanism, idea reuse) · option: opt-uninstall-edge
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\Microsoft Edge'
+    value: 'NoRemove'
+    operation: delete
+  # src: T1-h2 §9.2 · option: opt-uninstall-edge
+
+  # --- The removal itself: locate setup.exe under Program Files (x86)\Microsoft\Edge\
+  # Application (registry uninstall-string fallback), create the BrowserReplacement
+  # stub, then run Edge's own uninstaller. User data is never deleted (--delete-profile
+  # deliberately NOT passed - T1-h §4.3 guidance).
+  - !powerShell:
+    command: '.\EDGE-UNLOCK.ps1'
+    exeDir: true
+    wait: true
+    weight: 2
+    runas: currentUserElevated
+  # src: T1-h2 §9.2 + T1-e §8.12 (winutil WPFTweaksRemoveEdge / Win11Debloat method B
+  # ideas; script written from scratch for UltraOS, GPL-3.0) · option: opt-uninstall-edge
+  # Runs as the elevated user, not TrustedInstaller - Edge's setup.exe is known to
+  # misbehave under SYSTEM/TrustedInstaller contexts (T1-h2 §4.1: Atlas's Edge
+  # remover refuses those contexts).
+
+  # --- AppX sweep (after the win32 uninstall): Atlas ships these as !appx actions
+  # because "AppX uninstallation in the script seems to fail, therefore it's not used
+  # and AME Wizard is used instead" (Atlas components.yml comment, T1-e §3.2).
+  - !appx: {name: 'Microsoft.MicrosoftEdge_8wekyb3d8bbwe', type: family}
+  # src: T1-e §3.2 (Atlas components.yml verbatim family) · option: opt-uninstall-edge
+  # (legacy UWP Edge stub - "AppX Edge is removed from the latest builds of Windows"
+  # per Atlas, kept as a leftover-catcher)
+  - !appx: {name: 'Microsoft.Edge.GameAssist*', type: family}
+  # src: T1-h2 §9.2 (Revi appx sweep lists Microsoft.Edge.GameAssist - Edge's in-game
+  # overlay app; new Edge-family package class on current builds) · option: opt-uninstall-edge
+  - !appx: {name: 'Microsoft.MicrosoftEdgeDevToolsClient*', type: family}
+  # src: T1-h2 §9.2 (Revi appx sweep lists Microsoft.MicrosoftEdgeDevToolsClient) ·
+  # option: opt-uninstall-edge
+
+  # --- Deprovision keys (Atlas components.yml parity + the two newer families) so
+  # AppX deployment cannot re-stage Edge for new users or during feature updates.
+  - !registryKey:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned\Microsoft.MicrosoftEdge_8wekyb3d8bbwe'
+    operation: add
+  # src: T1-e §3.2 (Atlas components.yml verbatim) · option: opt-uninstall-edge
+  - !registryKey:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned\Microsoft.MicrosoftEdge.Stable_8wekyb3d8bbwe'
+    operation: add
+  # src: T1-e §3.2 (Atlas components.yml verbatim) · option: opt-uninstall-edge
+  - !registryKey:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned\Microsoft.Edge.GameAssist_8wekyb3d8bbwe'
+    operation: add
+  # ⚠️ UNVERIFIED: whether GameAssist is deprovisionable under this family name on
+  # 26300 (T1-h2 §9.5) - a dangling key is harmless. · option: opt-uninstall-edge
+  - !registryKey:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Appx\AppxAllUserStore\Deprovisioned\Microsoft.MicrosoftEdgeDevToolsClient_8wekyb3d8bbwe'
+    operation: add
+  # ⚠️ UNVERIFIED: DevToolsClient family name inferred from the package name (T1-h2
+  # §9.2) - dangling key is harmless if wrong. · option: opt-uninstall-edge
+
+  # --- Stop EdgeUpdate from resurrecting Edge (Atlas #1631, verified issue: leftover
+  # EdgeUpdate tasks re-create Edge after reboot).
+  - !scheduledTask: {path: '\MicrosoftEdgeUpdateTaskMachineCore', operation: disable, ignoreErrors: true}
+  # src: T1-h §4.2 (Atlas #1631) · option: opt-uninstall-edge
+  - !scheduledTask: {path: '\MicrosoftEdgeUpdateTaskMachineUA', operation: disable, ignoreErrors: true}
+  # src: T1-h §4.2 (Atlas #1631) · option: opt-uninstall-edge
+
+  # --- Sweep Edge autolaunch leftovers (Win11Debloat method B Run-key cleanup; the
+  # engine applies HKCU writes to every user hive, deletes are silent no-ops).
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+    value: 'MicrosoftEdgeAutoLaunch_A9F6DCE4ABADF4F51CF45CD7129E3C6C'
+    operation: delete
+  # src: T1-e §8.12 (Win11Debloat Invoke-ForceRemoveEdge) · option: opt-uninstall-edge
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'
+    value: 'MicrosoftEdgeAutoLaunch_A9F6DCE4ABADF4F51CF45CD7129E3C6C'
+    operation: delete
+  # src: T1-e §8.12 · option: opt-uninstall-edge
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Run'
+    value: 'Microsoft Edge Update'
+    operation: delete
+  # src: T1-e §8.12 · option: opt-uninstall-edge
+  - !registryValue:
+    path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Run'
+    value: 'MicrosoftEdgeAutoLaunch_A9F6DCE4ABADF4F51CF45CD7129E3C6C'
+    operation: delete
+  # src: T1-e §8.12 · option: opt-uninstall-edge (per-user autolaunch; engine mirrors
+  # HKCU writes across all user hives)

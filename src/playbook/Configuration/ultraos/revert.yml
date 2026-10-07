@@ -1,0 +1,145 @@
+---
+title: Stock Values (Revert Inventory)
+description: >-
+  Inventory of Microsoft stock/default values for the state UltraOS configures.
+  DATA SOURCE FOR UNDO - this file is never executed and is intentionally NOT
+  included from main.yml (importing it would undo the install immediately).
+actions:
+  # ============================================================================
+  # WHAT THIS FILE IS (T3-i, honest scope statement)
+  # ----------------------------------------------------------------------------
+  # - A human- and machine-readable record of pre-tweak Windows 11 defaults,
+  #   used by: UNDO.ps1 documentation, the install report's undo section, and a
+  #   future "UltraOS Undo" playbook (T1-j dossier section 5.2, layer L2/L3).
+  # - Service stocks are written as plain Start dwords (the same registry form
+  #   Atlas's setSvc.cmd and BACKUP.ps1 use), NOT as !service actions, so this
+  #   inventory stays pure data and never interferes with engine service logic.
+  #
+  # COVERAGE (honest):
+  # - COVERED: startup types for every service in the build manifest's services
+  #   module lists (ultraos/services.yml, privacy/telemetry-services.yml,
+  #   services/extreme-services.yml), the flagship telemetry/update/delivery
+  #   policies, and the classic-context-menu visual key.
+  # - NOT COVERED (out of scope here): the full inverse of every registryValue
+  #   in every module file (~400 keys). For those, the authoritative per-key
+  #   stock value is documented in each module file's own provenance comments;
+  #   automating the full inverse is the v1.1 undo-playbook roadmap item.
+  # - NOT DUPLICATED: Defender re-enable logic lives in
+  #   tweaks/security/defender-reenable.yml (T3-h); power scheme changes
+  #   (hibernation/max-performance) are powercfg-level and documented as manual
+  #   commands in the module files, not registry-invertible here.
+  # ============================================================================
+
+  # ----------------------------------------------------------------------------
+  # SERVICES - stock Start values (Windows 11 24H2/25H2 observation)
+  # src: T1-g section 1.2 stock-defaults table · Microsoft IoT service guidance
+  # (learn.microsoft.com/en-us/windows/iot/iot-enterprise/optimize/services)
+  # NOTE: values marked with * were verified on 24H2/25H2 builds; service
+  # defaults occasionally shift between builds - always cross-check the
+  # BACKUP.ps1 snapshot (the machine's own pre-install values) before undo.
+  # ----------------------------------------------------------------------------
+
+  # --- configured by the balanced tier (ultraos/services.yml) ----------------
+  # src: T1-g section 1.2 · preset: balanced
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\DiagTrack', value: 'Start', data: '2', type: REG_DWORD}
+  # Connected User Experiences and Telemetry: stock Automatic (service itself is
+  # disabled by privacy/telemetry-services.yml instead - kept here for undo).
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\OneSyncSvc', value: 'Start', data: '2', type: REG_DWORD}
+  # Sync Host template (per-user instances OneSyncSvc_<SID>): stock Automatic*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\TrkWks', value: 'Start', data: '2', type: REG_DWORD}
+  # Distributed Link Tracking Client: stock Automatic.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\PcaSvc', value: 'Start', data: '2', type: REG_DWORD}
+  # Program Compatibility Assistant: stock Automatic.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\diagnosticshub.standardcollector.service', value: 'Start', data: '3', type: REG_DWORD}
+  # Microsoft (R) Diagnostics Hub Collector: stock Manual.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WerSvc', value: 'Start', data: '3', type: REG_DWORD}
+  # Windows Error Reporting Service: stock Manual (service disable is T3-b's).
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\wercplsupport', value: 'Start', data: '3', type: REG_DWORD}
+  # Problem Reports and Solutions Control Panel Support: stock Manual.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\MapsBroker', value: 'Start', data: '2', type: REG_DWORD}
+  # Downloaded Maps Manager: stock Automatic (delayed start = Start dword 2).
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\lfsvc', value: 'Start', data: '3', type: REG_DWORD}
+  # Geolocation Service: stock Manual*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\RemoteRegistry', value: 'Start', data: '3', type: REG_DWORD}
+  # Remote Registry: stock Manual on Pro/Home* (UltraOS disables it as a
+  # security measure - see T1-g section 1.4 divergence note).
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\RetailDemo', value: 'Start', data: '3', type: REG_DWORD}
+  # Retail Demo Service: stock Manual*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\Fax', value: 'Start', data: '3', type: REG_DWORD}
+  # Fax: stock Manual*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WMPNetworkSvc', value: 'Start', data: '3', type: REG_DWORD}
+  # Windows Media Player Network Sharing Service: stock Manual* (absent unless
+  # WMP features are installed - undo tolerates missing services).
+
+  # --- configured by the extreme tier (tweaks/services/extreme-services.yml) --
+  # src: T1-g sections 1.2/1.3 · preset: extreme
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\SysMain', value: 'Start', data: '2', type: REG_DWORD}
+  # SysMain/Superfetch: stock Automatic (Atlas and Microsoft both default ON -
+  # disabling kills standby memory compression; extreme-only in UltraOS).
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\WSearch', value: 'Start', data: '2', type: REG_DWORD}
+  # Windows Search: stock Automatic (delayed start).
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\NDU', value: 'Start', data: '3', type: REG_DWORD}
+  # Network Data Usage: stock Manual*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\NetBT', value: 'Start', data: '3', type: REG_DWORD}
+  # NetBIOS over TCP/IP (driver): stock Manual*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\GpuEnergyDrv', value: 'Start', data: '3', type: REG_DWORD}
+  # GPU energy telemetry driver: stock Manual*.
+
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Services\Telemetry', value: 'Start', data: '3', type: REG_DWORD}
+  # Kernel telemetry driver: stock Manual* (⚠️ UNVERIFIED beyond T1-g notes).
+
+  # ----------------------------------------------------------------------------
+  # POLICIES - absence of the value IS the Windows default, so undo = delete.
+  # src: T1-f privacy dossier (AllowTelemetry/SIUF analysis), T1-g section 1.3
+  # (DeliveryOptimization + Windows Update toggle table) · preset: balanced
+  # ----------------------------------------------------------------------------
+
+  # AllowTelemetry: UltraOS writes 0 on all three paths (T1-f A1/A2/A3).
+  # Stock Windows 11 Home/Pro simply has no such value (Managed/Required level).
+  # (On Home/Pro the effective floor is Required data - see T1-f edition note.)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'AllowTelemetry', operation: delete}
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'AllowTelemetry', operation: delete}
+
+  - !registryValue: {path: 'HKLM\SOFTWARE\Wow6432Node\Microsoft\Windows\CurrentVersion\Policies\DataCollection', value: 'AllowTelemetry', operation: delete}
+
+  # Feedback prompts: UltraOS sets NumberOfSIUFInPeriod=0 (T1-f; winutil-derived
+  # pattern). Stock Windows has no value under Siuf\Rules (Windows decides).
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Siuf\Rules', value: 'NumberOfSIUFInPeriod', operation: delete}
+
+  # Delivery Optimization: UltraOS sets DODownloadMode=0 (HTTP only, no peering
+  # - T1-g section 1.3, Atlas parity). Stock = no policy value.
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeliveryOptimization', value: 'DODownloadMode', operation: delete}
+
+  # Windows Update notify-only mode (qol/updates.yml, wu-notify option):
+  # UltraOS sets AUOptions=2. Stock = no value (automatic updates). Note:
+  # NoAutoUpdate is deliberately never set by UltraOS (Atlas precedent - it
+  # breaks "Receive updates for other Microsoft products").
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU', value: 'AUOptions', operation: delete}
+
+  # ----------------------------------------------------------------------------
+  # VISUAL - keys whose mere PRESENCE creates the tweak; undo = delete the key.
+  # src: T1-g visual dossier + Atlas restore-old-context-menu.yml (GPL-3.0
+  # reference) · preset: balanced
+  # ----------------------------------------------------------------------------
+
+  # Classic Win10 context menu: UltraOS creates this CLSID key with an empty
+  # InprocServer32 default value. Deleting the whole key restores the stock
+  # Windows 11 menu.
+  - !registryKey: {path: 'HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}', operation: delete}

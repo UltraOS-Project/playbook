@@ -1,0 +1,93 @@
+---
+title: Extreme Services and Drivers
+description: >-
+  Additional service and driver changes for the Extreme preset, each with an
+  honest trade-off note. Everything here is reversible: the pre-change backup
+  lives at %WinDir%\UltraOS\Backups\services-before.reg and each action quotes
+  its stock startup type where T1-g documents one.
+option: 'preset-extreme'
+actions:
+  # Engine !service startup codes: 0=Boot 1=System 2=Automatic 3=Manual 4=Disabled.
+  # Stock defaults quoted below are Windows 11 24H2/25H2 observations from
+  # T1-g section 1.2 - re-verify against 26H2 RTM before changing them.
+  # Never-touch services (validator-enforced): see the list in
+  # ultraos\services.yml - none of the actions below are on it.
+
+  - !writeStatus: {status: 'Configuring Extreme services and drivers'}
+
+  # ------ SysMain (SuperFetch) ------
+  # HONEST TRADE-OFF: Microsoft lists SysMain as 'Don't disable' and Atlas
+  # ships it ENABLED by default (SuperFetch=1). Disabling kills SuperFetch
+  # prefetch (mostly dormant on modern SSDs) AND standby memory compression,
+  # which means MORE hard faults under memory pressure on 8-16 GB systems.
+  # It mainly helps machines with heavy standby-memory churn.
+  # rdyboost (ReadyBoost, Boot-start) is deliberately LEFT ENABLED: it stays
+  # dormant without SysMain, and Atlas's full toggle also strips its
+  # volume-class LowerFilters - UltraOS skips that class-key surgery to keep
+  # rollback trivial.
+  # Stock: Automatic (2). Revert: sc config SysMain start= auto
+  # src: T1-g section 6.4 + 1.3 - preset: extreme
+  - !service: {name: 'SysMain', operation: change, startup: 4}
+
+  # ------ Windows Search ------
+  # MS IoT: 'OK to disable'; Atlas instead DOWNSCOPES indexing to the Start
+  # Menu (minimal indexing) as the smarter middle ground. Extreme disables the
+  # service outright. Trade-off: file/content search in Explorer, Start menu
+  # and indexed apps (e.g. Outlook) falls back to slow non-indexed scanning.
+  # HOW TO REVERT (stock = Automatic / Delayed Start):
+  #   sc config WSearch start= delayed-auto
+  #   net start WSearch
+  # or restore %WinDir%\UltraOS\Backups\services-before.reg via the UltraOS
+  # folder's Uninstall option.
+  # src: T1-g section 1.3 + 1.4 + 7 - preset: extreme
+  - !service: {name: 'WSearch', operation: change, startup: 4}
+
+  # ------ Network Data Usage ------
+  # Community tweak (origin: memory-leak reports with Killer NICs on early
+  # Windows 10); not in MS IoT guidance and not in Atlas. Benefit on 26H2:
+  # ⚠️ UNVERIFIED. Trade-off: Settings > Network & Internet > Data usage and
+  # per-app network usage tracking break (Task Manager network column is not
+  # affected). T1-g maps NDU to Extreme-optional only.
+  # src: T1-g section 6.9 + 7 - preset: extreme
+  - !service: {name: 'NDU', operation: change, startup: 4}
+
+  # ------ Drivers configured as services ------
+  # Atlas disables all three of these by DEFAULT; T1-g section 7 maps them to
+  # every preset, but the UltraOS build manifest gates them to Extreme so
+  # Balanced keeps legacy LAN compatibility (more conservative than Atlas).
+
+  # NetBT - NetBIOS over TCP/IP, legacy pre-DNS name resolution. Stock:
+  # Manual (3). Trade-off: ancient SMB browsing and NetBIOS name lookups break
+  # (some old NAS/printer setups resolve names this way); DNS and modern SMB
+  # are unaffected. Atlas's file-sharing flow re-enables it via
+  # sc config NetBT start= when needed.
+  # src: T1-g section 1.2 + 1.5 - preset: extreme
+  - !service: {name: 'NetBT', operation: change, startup: 4}
+
+  # GpuEnergyDrv - GPU energy telemetry driver (Windows 10-era). Stock:
+  # Manual (3). Negligible risk per T1-g.
+  # src: T1-g section 1.2 - preset: extreme
+  - !service: {name: 'GpuEnergyDrv', operation: change, startup: 4}
+
+  # Telemetry - kernel telemetry driver. Stock: Manual (3). No known breakage,
+  # but evidence beyond community claims: ⚠️ UNVERIFIED (T1-g section 1.2).
+  # src: T1-g section 1.2 - preset: extreme
+  - !service: {name: 'Telemetry', operation: change, startup: 4}
+
+  # ============================================================================
+  # Deliberately NOT touched, even at Extreme:
+  # - Xbox services (XblAuthManager, XblGameSave, XboxNetApiSvc, XboxGipSvc,
+  #   GamingServices): XblAuthManager is REQUIRED for Xbox app / Game Pass
+  #   sign-in and Microsoft Store game entitlement checks, XblGameSave syncs
+  #   cloud saves, XboxNetApiSvc is needed for some titles' multiplayer,
+  #   GamingServices installs Game Pass titles. MS IoT suggests disabling them
+  #   (thin-client lens) but the gaming consensus says DON'T - Atlas keeps
+  #   them all, and so does UltraOS at every preset (T1-g section 1.4 + 7,
+  #   T1-h2 section 6.3 item 5, T1-e never-remove appx stack).
+  # - Printing (Spooler/PrintNotify), the Bluetooth stack, LanmanWorkstation/
+  #   LanmanServer (SMB) and SSDPSRV/fdPHost/FDResPub (network discovery):
+  #   community blacklists disable these, Atlas keeps them all enabled with
+  #   easy toggles - UltraOS v1 follows Atlas (per-feature opt-out toggles
+  #   are roadmap, T1-g section 7).
+  # - Never-touch services: validator-enforced, see ultraos\services.yml.
+  # ============================================================================

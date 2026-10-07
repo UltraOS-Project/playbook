@@ -1,0 +1,54 @@
+---
+title: Re-enable Defender
+description: >-
+  Restores Microsoft Defender at the end of the installation. UltraOS requires
+  Defender to be toggled off before install; this module turns it back on for
+  every user who did not explicitly opt to keep it disabled.
+option: '!opt-disable-defender'
+# src: T1-h2 §5.1 + §9.3 (engine DefenderToggled requirement state + Revi enable path, reimplemented) · option: '!opt-disable-defender'
+#
+# Why this file exists: the AME Wizard 'DefenderToggled' requirement makes the user turn off
+# the four Windows Security toggles (real-time protection, cloud-delivered protection,
+# automatic sample submission, Tamper Protection) BEFORE UltraOS runs. This module - which
+# runs late in the pipeline, after all other modules - undoes that Defender-off state so the
+# default UltraOS outcome is a protected system. The deletes are also idempotent repair steps
+# for machines where a previous run, an older UltraOS version or a third-party tool left
+# Defender policy overrides behind (engine delete is a no-op when a value does not exist).
+#
+# Tamper Protection is deliberately NOT re-enabled here: it cannot be reliably flipped back
+# on from the registry, and both reference ecosystems (AME Wizard engine prompt / Revi
+# revitool) treat it as a user-manual step. The install report tells the user to re-enable
+# it manually in Windows Security after the reboot.
+#
+# HONESTY: full re-protection should be verified by the user in
+# Windows Security > Virus & threat protection > 'Manage settings' after the post-install
+# reboot. Cloud-delivered protection and sample submission are governed by the privacy
+# module (DeliverSpyNet choices); users wanting stock defaults can flip them there.
+#
+# Effective after reboot: WinDefend starts automatically and re-reads its config; policy
+# deletions are picked up by Defender's periodic policy refresh (reboot or
+# 'gpupdate /target:computer /force' makes it immediate).
+actions:
+  - !writeStatus: {status: 'Re-enabling Defender'}
+
+  # --- Remove policy-layer 'keep Defender off' overrides (unset policy = Defender manages itself) ---
+  # src: T1-h2 §9.3 policy paths (Revi delete-on-enable set) · no-throw deletes
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender', value: 'DisableAntiSpyware', operation: delete}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender', value: 'DisableAntiVirus', operation: delete}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableRealtimeMonitoring', operation: delete}
+
+  # --- Remove core-layer overrides (the engine 'DefenderToggled' requirement reads exactly
+  # --- these; the user's pre-install UI toggle set Real-Time Protection\DisableRealtimeMonitoring=1)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Defender', value: 'DisableAntiSpyware', operation: delete}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Defender', value: 'DisableAntiVirus', operation: delete}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows Defender\Real-Time Protection', value: 'DisableRealtimeMonitoring', operation: delete}
+
+  # --- Restore stock service/driver start types ---
+  # WinDefend: Automatic (2) = stock default
+  # src: T1-h2 §9.3 (Revi enable path restores WinDefend-family defaults)
+  - !service: {name: 'WinDefend', operation: change, startup: 2}
+  # WdNisSvc (Network Inspection service) + WdNisDrv (its kernel driver): stock demand-start (3)
+  # src: task spec T3-h · corroborated by RapidOS Defender.ps1 defaults map + demand-start service
+  # logs - our flows never disable them, these writes are defensive repair only
+  - !service: {name: 'WdNisSvc', operation: change, startup: 3}
+  - !service: {name: 'WdNisDrv', operation: change, startup: 3}

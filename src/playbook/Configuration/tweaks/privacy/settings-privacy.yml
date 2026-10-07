@@ -1,0 +1,90 @@
+---
+title: Privacy Settings
+description: >-
+  Applies the Settings-app privacy toggles via registry - advertising ID, activity
+  history, app-launch tracking, tailored experiences, input personalization, speech,
+  language-list access and default app permissions.
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+actions:
+  - !writeStatus: {status: 'Applying privacy settings'}
+
+  # ------------------------------------------------------------------
+  # Safe tier - per-user + machine settings, zero functional breakage
+  # ------------------------------------------------------------------
+
+  # Advertising ID off (per-user toggle + machine policy)
+  # src: T1-f §4.1 · matrix row 1 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\AdvertisingInfo', value: 'Enabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\Software\Policies\Microsoft\Windows\AdvertisingInfo', value: 'DisabledByGroupPolicy', data: '1', type: REG_DWORD}
+
+  # Do not use diagnostic data for tailored experiences
+  # src: T1-f §4.4 · matrix row 2 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Privacy', value: 'TailoredExperiencesWithDiagnosticDataEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\CloudContent', value: 'DisableTailoredExperiencesWithDiagnosticData', data: '1', type: REG_DWORD}
+
+  # Activity history feed + upload/publish off (clipboard history Win+V is unaffected)
+  # src: T1-f §4.2 · matrix row 3 · preset: safe
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\System', value: 'EnableActivityFeed', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\System', value: 'UploadUserActivities', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\System', value: 'PublishUserActivities', data: '0', type: REG_DWORD}
+
+  # App-launch tracking off (Start menu stops ranking by usage)
+  # src: T1-f §4.3 · matrix row 4 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Explorer\Advanced', value: 'Start_TrackProgs', data: '0', type: REG_DWORD}
+
+  # Input personalization (ink/typing/handwriting) - HKCU layer
+  # Trade-off: cloud IME predictions / pen personalization degrade slightly
+  # src: T1-f §4.5 · matrix row 5 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization', value: 'RestrictImplicitInkCollection', data: '1', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization', value: 'RestrictImplicitTextCollection', data: '1', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\InputPersonalization\TrainedDataStore', value: 'HarvestContacts', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Personalization\Settings', value: 'AcceptedPrivacyPolicy', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Input\Settings', value: 'InsightsEnabled', data: '0', type: REG_DWORD}
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Input\TIPC', value: 'Enabled', data: '0', type: REG_DWORD}
+
+  # Online speech recognition off. Atlas deliberately does NOT also set the
+  # AllowInputPersonalization policy so dictation stays user-re-enableable
+  # (that hard policy belongs to the Extreme tier - T1-f §4.6).
+  # src: T1-f §4.6 · matrix row 6 · preset: safe
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Speech_OneCore\Settings\OnlineSpeechPrivacy', value: 'HasAccepted', data: '0', type: REG_DWORD}
+
+  # Do not send website access to the local language list (anti-fingerprinting)
+  # src: T1-f §4.11 · matrix row 14 · preset: safe
+  - !registryValue: {path: 'HKCU\Control Panel\International\User Profile', value: 'HttpAcceptLanguageOptOut', data: '1', type: REG_DWORD}
+
+  # Default app permissions (per-capability ConsentStore defaults)
+  # src: T1-f §4.7 config-app-permissions.yml · matrix row 17 · preset: safe
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\appDiagnostics', value: 'Value', data: 'Deny', type: REG_SZ}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location', value: 'Value', data: 'Deny', type: REG_SZ}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\userAccountInformation', value: 'Value', data: 'Deny', type: REG_SZ}
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\location', value: 'ShowGlobalPrompts', data: '0', type: REG_DWORD}
+
+  # ------------------------------------------------------------------
+  # Balanced+ tier
+  # ------------------------------------------------------------------
+
+  # Most-frequently-used application tracking off (policy layer)
+  # src: T1-f §4.3 disable-user-tracking.yml · matrix row 4 · preset: balanced
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Policies\Explorer', value: 'NoInstrumentation', data: '1', type: REG_DWORD, option: '!preset-safe'}
+
+  # Input personalization - HKLM policy layer (TIPC machine-wide + handwriting sharing)
+  # src: T1-f §4.5 · matrix row 5 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Input\TIPC', value: 'Enabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\TabletPC', value: 'PreventHandwritingDataSharing', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\HandwritingErrorReports', value: 'PreventHandwritingErrorReports', data: '1', type: REG_DWORD, option: '!preset-safe'}
+
+  # Speech model auto-updates off
+  # src: T1-f §4.6 disable-speech-auto-updates.yml · matrix row 7 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Speech', value: 'AllowSpeechModelUpdate', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Find My Device off (lfsvc/MapsBroker service disables belong to T3-c services.yml)
+  # src: T1-f §4.7 · matrix row 19 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\FindMyDevice', value: 'AllowFindMyDevice', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\FindMyDevice', value: 'LocationSyncEnabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Presence sensing: default Deny (user can still re-allow per app; the force-deny
+  # AppPrivacy policy is Extreme - extras-extreme.yml). Auto-lock-on-leave /
+  # wake-on-approach stop while denied. Key name inferred from the CapabilityAccessManager
+  # pattern - verify on hardware with a presence sensor (T1-f §4.7).
+  # src: T1-f §4.7 · matrix row 43 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CapabilityAccessManager\ConsentStore\humanPresence', value: 'Value', data: 'Deny', type: REG_SZ, option: '!preset-safe'}

@@ -1,0 +1,46 @@
+---
+title: Disable Maintenance Scheduled Tasks
+description: >-
+  BALANCED tier: disables curated maintenance and compatibility extras - the
+  PCA compatibility-database updater, the UCPD velocity rollout task and A/B
+  flighting usage reporting. Only well-sourced, non-contested tasks are
+  touched; everything is reversible by re-enabling the task.
+# Whole file is Balanced-tier (runs on Balanced and Extreme presets)
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Disabling maintenance scheduled tasks'}
+
+  # PCA (Program Compatibility Assistant) compatibility-database updater.
+  # Trade-off: the PCA compat database goes stale; this only affects legacy
+  # app-compat heuristics, not whether apps run or install.
+  # src: T1-g section 2 + T1-f section 3 (Atlas disable-scheduled-tasks.yml, GPL-3.0) · preset: balanced
+  - !scheduledTask: {path: '\Microsoft\Windows\Application Experience\PcaPatchDbTask', operation: disable, ignoreErrors: true}
+
+  # UCPD velocity - staged feature-rollout (velocity) task for the User Choice
+  # Protection Driver. Disabling it stops UCPD feature rollouts churning in
+  # the background. UltraOS never writes UserChoice/file-association keys
+  # (01-architecture section 7.3), so this is purely precautionary hygiene -
+  # Atlas parity. May not exist on all installs, hence ignoreErrors.
+  # src: T1-f section 3 (Atlas) · preset: balanced
+  - !scheduledTask: {path: '\Microsoft\Windows\AppxDeploymentClient\UCPD velocity', operation: disable, ignoreErrors: true}
+
+  # A/B flighting usage reports - paired with the UBPM registry delete below so
+  # Automatic Maintenance cannot resurrect the task (Atlas trick, T1-f section 3
+  # calls it "worth replicating").
+  # src: T1-g section 2 + T1-f section 3 (Atlas) · preset: balanced
+  - !scheduledTask: {path: '\Microsoft\Windows\Flighting\FeatureConfig\UsageDataReporting', operation: disable, ignoreErrors: true}
+  - !registryValue:
+    path: 'HKLM\System\CurrentControlSet\Control\Ubpm'
+    value: 'CriticalMaintenance_UsageDataReporting' # remove from Automatic Maintenance
+    operation: delete
+
+  # Deliberately NOT disabled (curation notes, T1-f section 3 catalog):
+  # - \Microsoft\Windows\Power Efficiency Diagnostics\AnalyzeSystem - owned by
+  #   tweaks\performance\system.yml (T3-f sleep study); not duplicated here.
+  # - StartupAppTask and RegIdleBackup - kept ON at Safe/Balanced per T1-g
+  #   section 2 (registry backups and Start "recently added" keep working).
+  # - Maps, Family Safety, XblGameSave, Device Information\Access tasks -
+  #   classic-community sources only and feature-breaking (Xbox cloud saves,
+  #   Family Safety); out of v1 scope (no extreme scheduled-tasks module).
+  # - \Microsoft\Windows\WindowsUpdate\* and .NET framework tasks - NEVER
+  #   touched by policy (validator-enforced).

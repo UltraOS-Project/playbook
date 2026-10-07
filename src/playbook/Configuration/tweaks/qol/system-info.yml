@@ -1,0 +1,46 @@
+---
+title: System Information
+description: >-
+  Sets UltraOS OEM support information shown in Settings > System > About and
+  winver, so the install is identifiable and points at the right support channel.
+actions:
+  - !writeStatus: {status: 'Setting UltraOS system information'}
+
+  # Shows in Settings > System > About ('Device specifications').
+  # src: Atlas tweaks/misc/config-oem-information.yml (Manufacturer/Model) · preset: all
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
+    value: 'Manufacturer'
+    data: 'UltraOS Project'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
+    value: 'Model'
+    data: 'UltraOS Playbook v1.0.0'
+    type: REG_SZ
+
+  # Support block: UltraOS is community-supported via the project repository.
+  # SupportURL is the project placeholder from 01-architecture §2 (Git placeholder).
+  # src: Atlas tweaks/misc/config-oem-information.yml (SupportURL) · preset: all
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
+    value: 'SupportProvider'
+    data: 'UltraOS'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
+    value: 'SupportURL'
+    data: 'https://github.com/UltraOS-Project/UltraOS'
+    type: REG_SZ
+
+  # Shows as 'Organization' in winver (About Windows) - same branding string as Model.
+  # src: Atlas tweaks/misc/config-oem-information.yml (RegisteredOrganization) · preset: all
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
+    value: 'RegisteredOrganization'
+    data: 'UltraOS Playbook v1.0.0'
+    type: REG_SZ
+
+  # NOTE: Atlas also renames the boot entry via 'bcdedit /set description'. UltraOS
+  # deliberately skips that - the boot menu should keep showing the real Windows
+  # version so dual-boot / recovery scenarios stay unambiguous.

@@ -1,0 +1,61 @@
+---
+title: Taskbar Cleanup
+description: >-
+  Cleans up the taskbar: Chat and Widgets buttons off, Task View off, and Search
+  shown as an icon. Taskbar alignment is deliberately NOT changed.
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Configuring the taskbar'}
+
+  # --- Chat (Teams) off ---
+  # Policy removes the Chat icon + chat surface; TaskbarMn hides the per-user button.
+  # src: Atlas tweaks/qol/taskbar/disable-windows-chat.yml · preset: balanced
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Chat'
+    value: 'ChatIcon'
+    data: '3'
+    type: REG_DWORD
+    builds: [ '>=22000' ]
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'TaskbarMn'
+    data: '0'
+    type: REG_DWORD
+    builds: [ '>=22000' ]
+
+  # --- Widgets taskbar button off ---
+  # Button-level change only: the Web Experience (Widgets) appx stays installed in
+  # Balanced so the user can re-enable it from Settings (full removal = Extreme, T3-a).
+  # src: documented taskbar value (Settings > Personalization > Taskbar > Taskbar items);
+  #      same mechanism used by RapidOS toolbox and Revi playbook · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'TaskbarDa'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Task View button off (still available via Win + Tab) ---
+  # src: Atlas tweaks/qol/taskbar/hide-task-view.yml · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'ShowTaskViewButton'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\MultiTaskingView\AllUpView'
+    value: 'Enabled'
+    operation: delete
+
+  # --- Search shown as an icon instead of a search box ---
+  # SearchboxTaskbarMode: 0 = hidden, 1 = icon, 2 = search box, 3 = icon and label.
+  # Keeping search visible (as an icon) is the usability-friendly middle ground.
+  # src: Atlas tweaks/privacy/search-settings.yml (icon default) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Search'
+    value: 'SearchboxTaskbarMode'
+    data: '1'
+    type: REG_DWORD
+
+  # NOTE: taskbar alignment (TaskbarAl) is intentionally NOT modified - UltraOS keeps
+  # the Windows 11 centered default. Atlas forces left alignment; we leave that choice
+  # to the user (Settings > Personalization > Taskbar > Taskbar alignment).

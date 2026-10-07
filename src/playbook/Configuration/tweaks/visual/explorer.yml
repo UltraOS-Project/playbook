@@ -1,0 +1,71 @@
+---
+title: File Explorer Cleanup
+description: >-
+  File Explorer quality of life: open to This PC, always show file extensions,
+  frequent/recent lists off, Start recommendations off and the Gallery node hidden.
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Configuring File Explorer'}
+
+  # --- Open File Explorer to This PC instead of Quick Access / Home ---
+  # src: Atlas tweaks/qol/explorer/open-to-this-pc.yml · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'LaunchTo'
+    data: '1'
+    type: REG_DWORD
+
+  # --- Always show file extensions (QoL + security) ---
+  # src: Atlas tweaks/qol/explorer/show-files.yml (HideFileExt half) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'HideFileExt'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Frequently used folders off in Quick Access / Home ---
+  # src: Atlas tweaks/qol/explorer/hide-frequently-used-items.yml (ShowFrequent) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer'
+    value: 'ShowFrequent'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Recent files off in Quick Access / Home ---
+  # Hides the 'Recent' section of the Home page; on 26H2 the old Gallery content
+  # (recent photos) surfaces in Home, so this also keeps the 26H2 Home page clean.
+  # src: Atlas tweaks/qol/explorer/hide-frequently-used-items.yml (ShowRecent) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer'
+    value: 'ShowRecent'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Start menu recommendations off (tips, shortcuts, new apps) ---
+  # src: Atlas tweaks/qol/shell/no-recommendations-start-menu.yml · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'Start_IrisRecommendations'
+    data: '0'
+    type: REG_DWORD
+    builds: [ '>=22000' ]
+
+  # --- Start menu account notifications off (22H2+ recommendations surface) ---
+  # src: Atlas tweaks/qol/shell/no-recommendations-start-menu.yml · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'Start_AccountNotifications'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Gallery node off (26H2-aware) ---
+  # Hides the File Explorer 'Gallery' tree node. On 24H2/25H2 this removes the Gallery
+  # page entirely; on 26H2 Gallery is folded into Home - the namespace hide stays valid
+  # and the Home page itself is decluttered by ShowRecent=0 above.
+  # src: Atlas tweaks/qol/explorer/disable-gallery.yml (CLSID {e88865ea-0e1c-4e20-9aa6-edcd0212c87c}) · preset: balanced
+  - !registryValue:
+    path: 'HKCU\Software\Classes\CLSID\{e88865ea-0e1c-4e20-9aa6-edcd0212c87c}'
+    value: 'System.IsPinnedToNameSpaceTree'
+    data: '0'
+    type: REG_DWORD
+    builds: [ '>=22000' ]

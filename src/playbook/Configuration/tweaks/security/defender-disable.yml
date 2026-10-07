@@ -1,0 +1,98 @@
+---
+title: Keep Defender Disabled
+description: >-
+  Opt-in: keeps Microsoft Defender disabled after installation using the
+  2026-proof double-written policy pattern that survives the January 2026
+  gpupdate auto-removal. Not recommended.
+option: 'opt-disable-defender'
+# src: T1-h2 §9.3 (Revi revitool double-write mechanism, reimplemented from the dossier description) · option: opt-disable-defender
+#
+# NOT RECOMMENDED. Defender is the only built-in real-time protection; FIFA/EAFC are known
+# to refuse to launch without it (Atlas docs FAQ) and the machine has no AV once this runs.
+# The post-install folder (C:\Windows\UltraOS\1. Security\Defender) ships an on/off toggle
+# pair for reversing this decision later - that toggle re-uses the same double-write pattern.
+#
+# THE 2026 PROBLEM (T1-h2 §9.3, verified from Revi source): after the January 2026 security
+# updates, 'gpupdate' automatically REMOVES 'DisableAntiSpyware' in the Policies path
+# (HKLM\SOFTWARE\Policies\Microsoft\Windows Defender) when security intelligence updates are
+# installed. A Policies-only disable therefore silently re-arms on 2026-patched builds,
+# including 26300 (26H2).
+#
+# THE 2026-PROOF FIX (double-write): write the Policies block, flush it with one
+# 'gpupdate /Target:Computer /Force' (which exercises the auto-removal path), write the
+# CORE path (HKLM\SOFTWARE\Microsoft\Windows Defender - engine context is TrustedInstaller,
+# equivalent to Revi's useTrustedInstaller core writes), then RE-APPLY the Policies block a
+# second time so both locations end synchronized. A later automatic policy refresh may strip
+# the Policies values again, but the core-path copy survives and keeps Defender off.
+#
+# Deliberate deviations from the Revi flow (documented): we do not run
+# 'MpCmdRun.exe -RemoveDefinitions -All' (dropping signature databases only slows the later
+# re-enable and the DefenderToggled requirement already has the user disable protections
+# pre-install), and we configure WinDefend/Sense as Manual instead of deleting any package
+# (UltraOS v1 has no WinSxS component stripping - see 01-architecture §7.1).
+actions:
+  - !writeStatus: {status: 'Keeping Defender disabled'}
+
+  # --- Policy writes, pass 1 (Policies path) ---
+  # src: T1-h2 §9.3 step 2 (applyPolicyWrites value set)
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender'
+    value: 'DisableAntiSpyware'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender'
+    value: 'DisableAntiVirus'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'
+    value: 'DisableRealtimeMonitoring'
+    data: '1'
+    type: REG_DWORD
+
+  # --- Force one computer-policy refresh (exercises the Jan-2026 auto-removal path) ---
+  # src: T1-h2 §9.3 step 2 (revitool runs gpupdate as part of its policy pass)
+  - !powerShell:
+    command: '& "$env:SystemRoot\System32\gpupdate.exe" /Target:Computer /Force'
+    wait: true
+
+  # --- Core writes (engine runs as TrustedInstaller = Revi's useTrustedInstaller core path) ---
+  # src: T1-h2 §9.3 step 3 (core Defender registries)
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows Defender'
+    value: 'DisableAntiSpyware'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows Defender'
+    value: 'DisableAntiVirus'
+    data: '1'
+    type: REG_DWORD
+
+  # --- Policy writes, pass 2: THE DOUBLE-WRITE ---
+  # src: T1-h2 §9.3 step 4 (re-applying policies after the core writes keeps both locations
+  # synchronized; verbatim workaround quote in the dossier - this is what survives the
+  # gpupdate auto-removal on 2026-patched builds)
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender'
+    value: 'DisableAntiSpyware'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender'
+    value: 'DisableAntiVirus'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows Defender\Real-Time Protection'
+    value: 'DisableRealtimeMonitoring'
+    data: '1'
+    type: REG_DWORD
+
+  # --- Services to Manual (last, per T1-h2 §9.3: synchronized policy+core state resolves
+  # --- the permission errors that occur when disabling Defender services directly) ---
+  # WinDefend: Manual (3). Sense (Defender ATP sensor): Manual (3) = its stock start type.
+  # MDCoreSvc/SecurityHealthService are never touched (never-touch list, 01-architecture §7.7).
+  - !service: {name: 'WinDefend', operation: change, startup: 3}
+  - !service: {name: 'Sense', operation: change, startup: 3}

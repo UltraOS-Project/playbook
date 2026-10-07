@@ -1,0 +1,105 @@
+---
+title: Extreme Network Stack
+description: >-
+  Aggressive TCP/IP stack tuning - multimedia network throttle removal,
+  per-interface Nagle/delayed-ACK disable, and RSS/ECN/autotuning stack
+  globals. Opt-in Extreme preset only; every action carries real
+  regression risk and Atlas deliberately ships none of them.
+option: 'preset-extreme'
+actions:
+  - !writeStatus: {status: 'Applying extreme network stack tuning (opt-in, risk-labeled)'}
+
+  # --------------------------------------------------------------------------
+  # READ FIRST - why this file is Extreme-only
+  # T1-g section 5.4 verified repo-wide that Atlas ships NONE of the actions
+  # below: no 'netsh int tcp set global' of any kind, no TcpAckFrequency /
+  # TCPNoDelay, no NetworkThrottlingIndex, no RSS/ECN commands, no DNS
+  # server changes. Their restraint is deliberate and evidence-based: the
+  # benefits of these tweaks are anecdotal and corner-case, while the
+  # regressions are real (throughput collapse, router/NAS interop
+  # breakage, MMCSS starvation). UltraOS exposes them ONLY at the Extreme
+  # preset so Safe/Balanced installs keep Atlas-grade restraint.
+  # Everything below is community-sourced unless the comment says otherwise.
+  # A reboot is recommended after applying this file.
+  # --------------------------------------------------------------------------
+
+  # NetworkThrottlingIndex = 0xffffffff - disables Windows' multimedia
+  # packet-scheduler cap (10 packets per millisecond for MMCSS-tagged
+  # multimedia traffic). Popular gaming tweak.
+  # CAVEATS: benefit is anecdotal and mostly irrelevant on modern NIC
+  # stacks (T1-g 5.4). Removing the cap can starve background MMCSS
+  # classes under heavy network load - audio glitching under load has been
+  # reported when combined with SystemResponsiveness=0. UltraOS keeps
+  # SystemResponsiveness at the MMCSS-balanced 10 (owned by
+  # tweaks/performance/gaming.yml) to limit that interaction.
+  # Revert: set back to 10 (Windows stock default) or delete the value.
+  # src: T1-g section 5.4 - community-sourced, NOT in Atlas - preset: extreme
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Multimedia\SystemProfile'
+    value: 'NetworkThrottlingIndex'
+    data: '4294967295'
+    type: REG_DWORD
+
+  # TCP stack globals via netsh - all calls batched into ONE PowerShell
+  # block; every command is failure-tolerant ('where supported'):
+  #   autotuninglevel=normal - we ENFORCE normal and deliberately NEVER set
+  #     'disabled': disabling receive-window autotuning caps TCP receive
+  #     throughput on high-BDP links (documented collapse reports; T1-g
+  #     5.4). Setting 'normal' only repairs systems where another 'tweak'
+  #     tool mangled the value. If you came here looking for
+  #     autotuninglevel=disabled, that is a known-bad setting - do not.
+  #   rss=enabled - receive-side scaling spreads receive processing across
+  #     CPU cores; already default-on for modern Windows/NICs, and netsh
+  #     may reject the command on builds where the knob was removed -
+  #     non-fatal either way.
+  #   ecncapability=enabled - ECN can improve congestion-sensitive flows
+  #     but interacts POORLY with some consumer routers, NAS boxes and
+  #     middleboxes (slow or dropped flows). This is the riskiest global in
+  #     this file; if transfers turn slow/erratic after applying Extreme,
+  #     revert with: netsh int tcp set global ecncapability=default
+  # src: T1-g section 5.4 - community guidance; Atlas ships none of these - preset: extreme
+  - !powerShell:
+    command: |
+      $tcpGlobals = @(
+          @{ name = 'autotuninglevel'; value = 'normal' },
+          @{ name = 'rss';             value = 'enabled' },
+          @{ name = 'ecncapability';   value = 'enabled' }
+      )
+      foreach ($setting in $tcpGlobals) {
+          $arg = $setting.name + '=' + $setting.value
+          $null = & netsh int tcp set global $arg 2>&1
+          if ($LASTEXITCODE -eq 0) {
+              Write-Output ('netsh int tcp set global ' + $arg + ' - applied')
+          } else {
+              Write-Output ('netsh int tcp set global ' + $arg + ' - not supported on this build/NIC (skipped, non-fatal)')
+          }
+      }
+      exit 0
+    runas: currentUserElevated
+    wait: true
+
+  # Nagle / delayed-ACK disable per interface - sets TcpAckFrequency=1 and
+  # TCPNoDelay=1 under every TCP interface key, which turns off Nagle's
+  # algorithm and delayed ACKs to shave latency in small-packet flows.
+  # CAVEATS: this is a latency-corner tweak - it can slightly REDUCE bulk
+  # throughput and has been reported to break some NAS/samba behaviors
+  # (T1-g 5.4). It applies to ALL interfaces, including virtual and VPN
+  # adapters, and needs a reboot. Registry-only because netsh has no
+  # equivalent for these per-interface values.
+  # Revert: delete TcpAckFrequency and TCPNoDelay from every key under
+  # HKLM\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces\<GUID>.
+  # src: T1-g section 5.4 - community tweak, NOT in Atlas - preset: extreme
+  - !powerShell:
+    command: |
+      $ifaceRoot = 'HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters\Interfaces'
+      $interfaces = Get-ChildItem -Path $ifaceRoot -ErrorAction SilentlyContinue
+      $count = 0
+      foreach ($iface in $interfaces) {
+          $freq = New-ItemProperty -Path $iface.PSPath -Name 'TcpAckFrequency' -Value 1 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+          $nodelay = New-ItemProperty -Path $iface.PSPath -Name 'TCPNoDelay' -Value 1 -PropertyType DWord -Force -ErrorAction SilentlyContinue
+          if ($null -ne $freq -and $null -ne $nodelay) { $count++ }
+      }
+      Write-Output ('Nagle/delayed-ACK disabled on ' + $count + ' interface(s). Reboot required to apply.')
+      exit 0
+    runas: currentUserElevated
+    wait: true

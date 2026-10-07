@@ -1,0 +1,90 @@
+---
+title: Extreme Performance
+description: >-
+  Extreme-preset-only latency tuning: global timer resolution behavior, fullscreen
+  optimizations off, and Multi-Plane Overlay off. Every item carries a real
+  trade-off - see docs/MODULES.md before choosing Extreme.
+# Extreme tier: only runs when the 'Extreme' preset is selected (01-architecture §4)
+option: 'preset-extreme'
+actions:
+  - !writeStatus: {status: 'Applying extreme performance tweaks'}
+
+  # --- Timer resolution: restore legacy global behavior --------------------------
+  # Windows 11 24H2+ no longer honors process-wide timer-resolution requests
+  # system-wide; this value restores the Win10-style global request behavior
+  # (smoother frame pacing / lower sleep-timer granularity when a tool requests it).
+  # HONEST LIMITATION: Atlas additionally bundles SetTimerResolution.exe (amitxv)
+  # plus a logon scheduled task to actually request 0.506 ms. The upstream repo
+  # (github.com/amitxv/SetTimerResolution) is 404 as of 2026-10-07 and the binary's
+  # license is unverified, so UltraOS v1 bundles NO binary and creates NO task.
+  # This registry value alone only changes request scoping - an external timer
+  # utility must be running for the resolution change to take effect. Users who
+  # want the full behavior install their own timer tool; we do not ship one.
+  # Cost when a tool is active: marginally higher idle wakeups/power.
+  # ⚠️ Verified for 24H2/25H2 behavior - not yet re-verified on 26H2 RTM.
+  # src: T1-g §6.2 (Blur Busters Dec 2024 + PCGamingWiki) · preset: extreme
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+    value: 'GlobalTimerResolutionRequests'
+    data: '1'
+    type: REG_DWORD
+
+  # --- Fullscreen optimizations (FSO) off -----------------------------------------
+  # Forces exclusive fullscreen (disables DXGI maximized windowed mode) globally:
+  # real DWM/frame-latency benefit on SOME engines (older DX9/DX11), but it can
+  # hurt or break borderless-only titles, alt-tab stability and HDR on some setups.
+  # Modern advice is a per-app FSO toggle (Game Bar: Win+Alt+/); UltraOS only
+  # applies the global variant at Extreme. The GameDVR/Game Bar values live in
+  # gaming.yml (balanced) and are deliberately not duplicated here.
+  # src: T1-g §3.2 (Atlas 'Disable FSO and Game Bar Support.cmd') · preset: extreme
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_DSEBehavior'
+    data: '2'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_DXGIHonorFSEWindowsCompatible'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_EFSEFeatureFlags'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_FSEBehavior'
+    data: '2'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_FSEBehaviorMode'
+    data: '2'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\System\GameConfigStore'
+    value: 'GameDVR_HonorUserFSEBehaviorMode'
+    data: '1'
+    type: REG_DWORD
+  # Global compat layer: disables DX maximized windowed mode for every process
+  # (takes effect for newly started processes after a reboot)
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+    value: '__COMPAT_LAYER'
+    data: '~ DISABLEDXMAXIMIZEDWINDOWEDMODE'
+    type: REG_SZ
+
+  # --- Multi-Plane Overlay (MPO) off ------------------------------------------------
+  # Disables MPO: fixes flickering on multi-monitor mixed-Hz setups, at the cost
+  # of some composition efficiency on supported setups. Troubleshooting-grade
+  # tweak - Atlas ships nothing like it (T1-g §3.3).
+  # GPU-DRIVER CAUTION: NVIDIA/AMD driver updates can recreate the Dwm key values
+  # and re-enable MPO - if flicker returns after a GPU driver update, re-run this
+  # playbook (Extreme preset) to re-apply.
+  # src: T1-g §3.3 · preset: extreme
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\Dwm'
+    value: 'OverlayTestType'
+    data: '5'
+    type: REG_DWORD

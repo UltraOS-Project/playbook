@@ -1,0 +1,125 @@
+---
+title: Power Configuration
+description: >-
+  Disables Fast Startup on every preset, and offers two opt-in extras: a
+  latency-focused maximum-performance power scheme and hibernation removal.
+# No file-level gate: one always-on action plus two wizard-option sets inside.
+actions:
+  - !writeStatus: {status: 'Configuring power settings'}
+
+  # --- Fast Startup off (all presets) -----------------------------------------
+  # Fast Startup resumes the kernel from a hiberfile and carries driver state
+  # across "shutdowns" (a source of odd bugs; also keeps NTFS locked for other
+  # operating systems). Slightly slower cold boot, far more reliable system state.
+  # If 'opt-disable-hibernation' below is chosen, Fast Startup dies implicitly
+  # anyway (no hiberfil.sys left to resume from).
+  # src: T1-g §4.1 + §7 (Atlas disables this unconditionally) · preset: all
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Power'
+    value: 'HiberbootEnabled'
+    data: '0'
+    type: REG_DWORD
+
+  # --- OPTION: Maximum Performance power scheme ---------------------------------
+  # Duplicates the hidden 'Ultimate Performance' scheme under a fixed UltraOS GUID
+  # (existence guard makes re-runs idempotent), activates it, renames it and applies
+  # the Atlas latency modifiers: NVMe/USB idle timeouts 0, USB selective suspend +
+  # USB3 link power management off, throttle states off, display never off, CPU
+  # performance time-check interval 200 ms (fewer DPCs). Then zeroes device-level
+  # D3/selective-suspend/wake registry values (originals renamed to '<value>-OLD'
+  # for rollback) and turns off NIC power-saving advanced properties and WMI
+  # power enable. COSTS: higher idle power draw and heat, USB devices never sleep
+  # (mouse LEDs stay on), possible NIC quirks on some Killer/Realtek chips - not
+  # recommended for laptops. On Modern Standby (S0ix) machines classic plan
+  # settings may be partially ignored (T1-g §4.3). Atlas additionally disables two
+  # ACPI devices ('ACPI Processor Aggregator', 'Microsoft Windows Management
+  # Interface for ACPI') - deliberately NOT included in v1 (too invasive).
+  # The registry walk over HKLM\SYSTEM\...\Enum takes a moment - expected.
+  # src: T1-g §4.2 (Atlas DisablePowerSaving.ps1) + §4.3 · preset: opt-in (opt-max-performance)
+  - !powerShell:
+    command: |
+      # Duplicate 'Ultimate Performance' under the fixed UltraOS GUID (idempotent)
+      if (!(powercfg /l | Select-String 'GUID: 556c7472-614f-4f53-8000-000000000001' -Quiet)) {
+          powercfg /duplicatescheme e9a42b02-d5df-448d-aa00-03f14749eb61 556c7472-614f-4f53-8000-000000000001 > $null
+      }
+      # The ACTIVE scheme is a per-user setting -> this block runs elevated as the current user
+      powercfg /setactive 556c7472-614f-4f53-8000-000000000001
+      powercfg /changename scheme_current 'UltraOS Performance' 'Power scheme optimized for latency and performance. Derived from Ultimate Performance.'
+      # Secondary NVMe idle timeout - 0 ms
+      powercfg /setacvalueindex scheme_current 0012ee47-9041-4b5d-9b77-535fba8b1442 d3d55efd-c1ff-424e-9dc3-441be7833010 0
+      # Primary NVMe idle timeout - 0 ms
+      powercfg /setacvalueindex scheme_current 0012ee47-9041-4b5d-9b77-535fba8b1442 d639518a-e56d-4345-8af2-b9f32fb26109 0
+      # NVMe NOPPME - off
+      powercfg /setacvalueindex scheme_current 0012ee47-9041-4b5d-9b77-535fba8b1442 fc7372b6-ab2d-43ee-8797-15e9841f2cca 0
+      # USB hub selective suspend timeout - 0 ms
+      powercfg /setacvalueindex scheme_current 2a737441-1930-4402-8d77-b2bebba308a3 0853a681-27c8-4100-a2fd-82013e970683 0
+      # USB selective suspend - disabled
+      powercfg /setacvalueindex scheme_current 2a737441-1930-4402-8d77-b2bebba308a3 48e6b7a6-50f5-4782-a5d4-53bb8f07e226 0
+      # USB 3 link power management - off
+      powercfg /setacvalueindex scheme_current 2a737441-1930-4402-8d77-b2bebba308a3 d4e98f31-5ffe-4ce1-be31-1b38b384c009 0
+      # Allow throttle states - off
+      powercfg /setacvalueindex scheme_current 54533251-82be-4824-96c1-47b60b740d00 3b04d4fd-1cc7-4f23-ab1c-d1337819c4bb 0
+      # Dim display after - 0 seconds
+      powercfg /setacvalueindex scheme_current 7516b95f-f776-4464-8c53-06167f40cc99 17aaa29b-8b43-4b94-aafe-35f64daaf1ee 0
+      # Turn off display after - 0 seconds
+      powercfg /setacvalueindex scheme_current 7516b95f-f776-4464-8c53-06167f40cc99 3c0bc021-c8a8-4e07-a973-6b14cbcb2b7e 0
+      # Processor performance time check interval - 200 ms (fewer DPCs; up to 5000 ms on statically clocked systems)
+      powercfg /setacvalueindex scheme_current 54533251-82be-4824-96c1-47b60b740d00 4d2b0152-7d5c-498b-88e2-34345392a2c5 200
+      # NIC power-saving advanced properties off (EEE, green ethernet, uAPSD, ...)
+      $nicProps = Get-NetAdapter -Physical | Get-NetAdapterAdvancedProperty
+      foreach ($setting in @('ULPMode','EEE','EEELinkAdvertisement','AdvancedEEE','EnableGreenEthernet','EeePhyEnable','uAPSDSupport','EnablePowerManagement','EnableSavePowerNow','bLowPowerEnable','PowerSaveMode','PowerSavingMode','SavePowerNowEnabled','AutoPowerSaveModeEnabled','NicAutoPowerSaver','SelectiveSuspend')) {
+          $nicProps | Where-Object { $_.RegistryKeyword -eq ('*' + $setting) -or $_.RegistryKeyword -eq $setting } | Set-NetAdapterAdvancedProperty -RegistryValue 0
+      }
+      # Device-level D3 / selective suspend / wake values - zeroed, originals kept as '<value>-OLD' for rollback
+      $keys = Get-ChildItem -Path 'HKLM:\SYSTEM\CurrentControlSet\Enum' -Recurse -EA 0
+      foreach ($value in @('AllowIdleIrpInD3','D3ColdSupported','DeviceSelectiveSuspended','EnableIdlePowerManagement','EnableSelectiveSuspend','EnhancedPowerManagementEnabled','IdleInWorkingState','SelectiveSuspendEnabled','SelectiveSuspendOn','WaitWakeEnabled','WakeEnabled','WdfDirectedPowerTransitionEnable')) {
+          $keys | Where-Object { $_.GetValueNames() -contains $value } | ForEach-Object {
+              $keyPath = $_.PSPath
+              $oldValue = $value + '-OLD'
+              if ($null -eq (Get-ItemProperty -Path $keyPath -Name $oldValue -EA 0)) {
+                  Rename-ItemProperty -Path $keyPath -Name $value -NewName $oldValue -Force
+              }
+              Set-ItemProperty -Path $keyPath -Name $value -Value 0 -Type DWORD -Force
+          }
+      }
+      # WMI power enable - off (MSPower_DeviceEnable)
+      Get-CimInstance -ClassName MSPower_DeviceEnable -Namespace root/WMI | Set-CimInstance -Property @{ Enable = $false }
+      # Re-assert the scheme as active
+      powercfg /setactive scheme_current
+    wait: true
+    weight: 20
+    runas: currentUserElevated
+    option: 'opt-max-performance'
+
+  # Kernel power throttling (EcoQoS) off - part of the max-performance scope
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Power\PowerThrottling'
+    value: 'PowerThrottlingOff'
+    data: '1'
+    type: REG_DWORD
+    option: 'opt-max-performance'
+  # Storage D3 in Modern Standby off
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Storage'
+    value: 'StorageD3InModernStandby'
+    data: '0'
+    type: REG_DWORD
+    option: 'opt-max-performance'
+  # stornvme idle power mode off - NVMe devices never enter a low-power state
+  # (harmless no-op on SATA-only systems)
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Services\stornvme\Parameters\Device'
+    value: 'IdlePowerMode'
+    data: '0'
+    type: REG_DWORD
+    option: 'opt-max-performance'
+
+  # --- OPTION: Disable hibernation ------------------------------------------------
+  # Removes hiberfil.sys (frees a RAM-sized chunk of disk), makes NTFS accessible
+  # from other operating systems, and implicitly kills Fast Startup.
+  # Re-enable at any time with: powercfg /h on
+  # src: T1-g §4.1 (Atlas script-power.yml + 'Disable Hibernation (default).cmd') · preset: opt-in (opt-disable-hibernation)
+  - !run:
+    exe: 'powercfg.exe'
+    args: '/h off'
+    option: 'opt-disable-hibernation'

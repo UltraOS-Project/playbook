@@ -1,0 +1,129 @@
+---
+title: Services and Drivers
+description: >-
+  Configures the Balanced-tier (Atlas-conservative) service set to reduce
+  background resource use. Telemetry services (DiagTrack, WerSvc) are owned by
+  the privacy module and are deliberately NOT duplicated here; Extreme-tier
+  service and driver changes live in tweaks\services\extreme-services.yml.
+actions:
+  # ------------------------------------------------------------------
+  # - Potential references                                           -
+  # - Mostly upon Microsoft IoT / security-guideline recommendation  -
+  # ------------------------------------------------------------------
+  # https://learn.microsoft.com/en-us/windows/iot/iot-enterprise/optimize/services
+  # https://learn.microsoft.com/en-us/windows-server/security/windows-services/security-guidelines-for-disabling-system-services-in-windows-server
+  # https://learn.microsoft.com/en-us/windows-server/remote/remote-desktop-services/rds-vdi-recommendations-2004
+  #
+  # Engine !service startup codes: 0=Boot 1=System 2=Automatic 3=Manual 4=Disabled.
+  # Stock defaults quoted below are Windows 11 24H2/25H2 observations from
+  # T1-g section 1.2 - re-verify against 26H2 RTM before changing them.
+  # The authoritative revert source is the pre-change backup:
+  # %WinDir%\UltraOS\Backups\services-before.reg (exported by BACKUP.ps1
+  # before this file runs in the pipeline).
+  #
+  # ============================================================================
+  # NEVER-TOUCH SERVICES (01-architecture section 7.7 - T1-g section 1.4 -
+  # T1-h2 section 6.3). scripts/validate-playbook.py HARD-ERRORS on any of
+  # these being disabled (startup 4) or deleted:
+  #   wuauserv TrustedInstaller UsoSvc DoSvc Spooler Audiosrv Winmgmt Schedule
+  #   profsvc UserMgr StateRepository InstallService AppXSvc ClipSVC
+  #   SecurityHealthService MDCoreSvc WlanSvc netman netprofm NlaSvc
+  #   CDPSvc CDPUserSvc
+  # Policy additions - never disable anywhere, but not machine-checked:
+  #   WaaSMedicSvc BITS cryptsvc msiserver wuapi   (Windows Update / servicing)
+  #   WdNisSvc                                      (Defender platform)
+  #   PrintNotify AudioEndpointBuilder EFS hidserv (printing / audio / EFS /
+  #                                                 media keys)
+  #   DsmSvc DevQueryBroker LicenseManager          (device setup / Store
+  #                                                 licensing)
+  #   Xbox stack: XblAuthManager XblGameSave XboxNetApiSvc XboxGipSvc
+  #   GamingServices                                (Game Pass dependency)
+  # Rationale: Microsoft IoT 'Don't disable' verdicts + T1-g breakage notes
+  # (0x8024xxxx update failures, Store 0x80D02002, dead audio, broken user
+  # profiles). When in doubt, leave a service at its stock startup type.
+  # ============================================================================
+
+  - !writeStatus: {status: 'Configuring services (Balanced tier)', option: '!preset-safe'}
+
+  # ------ Microsoft IoT guidance: 'OK to disable' ------
+
+  # Sync Host - per-user template service (OneSyncSvc_<sid> instances inherit
+  # from it; the template change is the Atlas-identical mechanism).
+  # Stock: Automatic. Trade-off: breaks sync in Mail-type UWP apps; harmless
+  # for most users.
+  # src: T1-g section 1.2 + 1.4 - preset: balanced
+  - !service: {name: 'OneSyncSvc', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Distributed Link Tracking Client. Stock: Automatic (2). Trade-off:
+  # shell shortcuts to files on OTHER machines may not self-heal; negligible
+  # for local shortcuts.
+  # src: T1-g section 1.2 + 1.4 - preset: balanced
+  - !service: {name: 'TrkWks', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Program Compatibility Assistant. Stock: Automatic (2). Trade-off: legacy
+  # apps relying on silent compatibility shims may misbehave.
+  # src: T1-g section 1.2 + 1.4 - preset: balanced
+  - !service: {name: 'PcaSvc', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Downloaded Maps Manager. Trade-off: apps depending on downloaded/offline
+  # maps break (rare on desktop installs).
+  # src: T1-g section 1.4 + 7 - preset: balanced
+  - !service: {name: 'MapsBroker', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Geolocation Service. Trade-off: location-aware apps (Maps, weather)
+  # lose geolocation; privacy win.
+  # src: T1-g section 1.4 + 7 - preset: balanced
+  - !service: {name: 'lfsvc', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Retail Demo Service. Retail-store demo mode only - no legitimate use on a
+  # real installation.
+  # src: T1-g section 1.4 + 7 - preset: balanced
+  - !service: {name: 'RetailDemo', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Fax. No fax hardware or software expects this on modern installs.
+  # src: T1-g section 1.4 + 7 - preset: balanced
+  - !service: {name: 'Fax', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Windows Media Player Network Sharing Service. Trade-off: WMP library
+  # streaming to network devices (Play-To / DLNA) breaks.
+  # src: T1-g section 1.4 + 7 - preset: balanced
+  - !service: {name: 'WMPNetworkSvc', operation: change, startup: 4, option: '!preset-safe'}
+
+  # ------ Microsoft IoT guidance: 'Don't disable' - Atlas knowingly deviates ------
+
+  # Microsoft (Visual Studio) Diagnostics Hub Standard Collector Service.
+  # Stock: Manual (3). MS IoT verdict: Don't disable; Atlas disables anyway.
+  # Trade-off: Visual Studio profiling / diagnostics sessions fail - a pure
+  # dev-workstation concern. UltraOS ships it at Balanced with this warning
+  # (T1-g section 7 maps it to Balanced, not Safe).
+  # src: T1-g section 1.2 + 1.4 + 7 - preset: balanced
+  - !service: {name: 'diagnosticshub.standardcollector.service', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Problem Reports and Solutions Control Panel support. Stock: Manual (3).
+  # MS IoT: 'No guidance'. The CPL UI is useless once error reporting is off -
+  # the WerSvc service change itself is owned by the privacy module
+  # (tweaks\privacy\telemetry-services.yml), NOT duplicated here.
+  # src: T1-g section 1.2 + 1.4 - preset: balanced
+  - !service: {name: 'wercplsupport', operation: change, startup: 4, option: '!preset-safe'}
+
+  # ------ Security hardening (security win, not a performance tweak) ------
+
+  # Remote Registry. Divergent guidance: MS IoT lists 'Don't disable' (remote
+  # management lens), but Microsoft's own security guidelines for disabling
+  # system services allow it, and for a home user disabling is a security win
+  # (blocks remote registry tampering). T1-g: 'disable OK in all' presets.
+  # src: T1-g section 1.4 + 7 - preset: balanced
+  - !service: {name: 'RemoteRegistry', operation: change, startup: 4, option: '!preset-safe'}
+
+  # ------ Deliberately NOT in this file (for future maintainers) ------
+  # - DiagTrack and WerSvc: telemetry-first services, owned by the privacy
+  #   module (tweaks\privacy\telemetry-services.yml, T3-b). Never duplicate.
+  # - UCPD: UltraOS never writes UserChoice / file-association keys, so the
+  #   UCPD driver service is left alone entirely (01-architecture section 7.3,
+  #   T1-h2 section 6.3 item 15). Only its velocity scheduled task is handled
+  #   by the tasks module.
+  # - Drivers (NetBT, GpuEnergyDrv, Telemetry) plus SysMain / WSearch / NDU:
+  #   Extreme tier only - see tweaks\services\extreme-services.yml. T1-g maps
+  #   the three drivers to all presets (Atlas disables them by default), but
+  #   the build manifest gates them to Extreme so Balanced keeps legacy
+  #   name-resolution / file-sharing flows intact.

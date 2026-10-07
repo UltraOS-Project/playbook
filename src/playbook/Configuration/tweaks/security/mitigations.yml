@@ -1,0 +1,67 @@
+---
+title: Disable CPU Mitigations
+description: >-
+  Opt-in: disables Spectre/Meltdown-family CPU mitigations, SEHOP, CFG and
+  file system mitigations. Only worthwhile on older CPUs - near-zero gain on
+  modern hardware. Not recommended.
+option: 'opt-disable-mitigations'
+# src: T1-g §6.1 (Atlas 'Disable All Mitigations.cmd', GPL-3.0 - registry approach derived) · option: opt-disable-mitigations
+#
+# WARNING - anti-cheat breakage (T1-h2 §6.1): Easy Anti-Cheat titles (e.g. Fortnite
+# 'internal anti-cheat error 0xEAC02014', Atlas issue #1532) are a known casualty of
+# mitigations-off; Atlas's standing guidance is 'if you have disabled mitigations and face
+# issues with anticheat software, set Windows default mitigations'. Riot Vanguard does not
+# require CPU mitigations but DOES require the separate VBS/HVCI option never be disabled
+# (see vbs.yml). If an anti-cheat title misbehaves, undo this via the
+# C:\Windows\UltraOS\1. Security\Mitigations toggle, or manually:
+#   delete FeatureSettingsOverride + FeatureSettingsOverrideMask,
+#   delete DisableExceptionChainValidation, run 'Set-ProcessMitigation -System -Enable CFG',
+#   set ProtectionMode back to 1, then reboot.
+#
+# HONESTY (T1-g §6.1): on CPUs >= 8th-gen Intel / Ryzen 3000+ disabling mitigations yields
+# near-zero real-world gain while removing Spectre/Meltdown/retbleed-class protections.
+# Intended for older CPUs where the mitigations measurably hurt. A reboot is required.
+#
+# Scope note: Atlas's script additionally rewrites the kernel MitigationOptions/
+# MitigationAuditOptions nibble mask to all-2s (every per-process mitigation off) and sets
+# 'bcdedit /set nx OptIn' (DEP for OS components only). UltraOS v1 deliberately ships only
+# the four registry-backed items below: the blanket nibble mask is the EAC-adjacent trigger
+# and offers little gain on modern CPUs; DEP is left at the Windows default.
+actions:
+  - !writeStatus: {status: 'Disabling CPU mitigations'}
+
+  # Spectre/Meltdown family (incl. branch-prediction mitigations) off
+  # src: T1-g §6.1 - FeatureSettingsOverride=3 + FeatureSettingsOverrideMask=3 pair
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
+    value: 'FeatureSettingsOverride'
+    data: '3'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\Memory Management'
+    value: 'FeatureSettingsOverrideMask'
+    data: '3'
+    type: REG_DWORD
+
+  # SEHOP (Structured Exception Handling Overwrite Protection) off
+  # src: T1-g §6.1 - DisableExceptionChainValidation=1 (exists in ntoskrnl strings)
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager\kernel'
+    value: 'DisableExceptionChainValidation'
+    data: '1'
+    type: REG_DWORD
+
+  # Control Flow Guard off (system-wide). No native action exists for the
+  # Set-ProcessMitigation cmdlet, hence the single PowerShell call.
+  # src: T1-g §6.1 - 'PowerShell -NoP -C "Set-ProcessMitigation -System -Disable CFG"'
+  - !powerShell:
+    command: 'Set-ProcessMitigation -System -Disable CFG'
+    wait: true
+
+  # File system mitigations off
+  # src: T1-g §6.1 - ProtectionMode=0 (Session Manager)
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Session Manager'
+    value: 'ProtectionMode'
+    data: '0'
+    type: REG_DWORD

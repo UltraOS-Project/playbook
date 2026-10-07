@@ -1,0 +1,73 @@
+---
+title: Disable Core Isolation
+description: >-
+  Opt-in: disables VBS/HVCI (Memory Integrity), kernel shadow stacks,
+  Credential Guard, LSA Protection and the VBS runtime. Removes protections
+  that anti-cheats and virtualization subsystems depend on. Not recommended.
+option: 'opt-disable-vbs'
+# src: T1-g §6.3 (Atlas ConfigVBS.ps1 -DisableAllVBS, GPL-3.0 - key set derived) · option: opt-disable-vbs
+#
+# WARNING - breakage (T1-h2 §6.1 + §6.2): Riot Vanguard (Valorant, VAN9005 errors) and FACEIT
+# officially REQUIRE Memory Integrity/HVCI and refuse to run without it; WSL2, Docker
+# Desktop, Hyper-V and Windows Sandbox break entirely (HCS ERROR_PATH_NOT_FOUND, Atlas
+# #1615/#1647); recent games increasingly require these features. UltraOS keeps VBS on in
+# every preset (never-touch list item 1, 01-architecture §7.7) - this file only runs when
+# explicitly opted in. Re-enable via C:\Windows\UltraOS\1. Security\Core Isolation toggle,
+# or set Enabled=1 (+ WasEnabledBy=2 for memory integrity) and reboot.
+#
+# THE 24H2+ FORCED-VALUE PATTERN (T1-g §6.3): since 24H2 Windows resets these DeviceGuard
+# scenario values back to enabled, so each feature must be FORCED off with an explicit
+# 'Enabled=0' DWORD (Atlas comment: 'Need to be forced since Windows 11 24H2') instead of
+# deleting the values, and the 'ChangedInBootCycle'/'WasEnabledBy' provenance markers must
+# be cleared so Windows does not re-arm the scenario on the next boot cycle.
+#
+# All supported UltraOS builds (26100/26200/26300) are 24H2+, so no builds gate is needed.
+# A reboot is required for the changes to take effect.
+actions:
+  - !writeStatus: {status: 'Disabling Core Isolation (VBS)'}
+
+  # Memory Integrity / HVCI (Hypervisor-Enforced Code Integrity) - forced off since 24H2
+  # src: T1-g §6.3 - Scenarios\HypervisorEnforcedCodeIntegrity\Enabled=0 (forced)
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\HypervisorEnforcedCodeIntegrity'
+    value: 'Enabled'
+    data: '0'
+    type: REG_DWORD
+
+  # Kernel-mode Hardware-enforced Stack Protection (Win11+)
+  # src: T1-g §6.3 - Scenarios\KernelShadowStacks\Enabled=0 + marker cleanup
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks'
+    value: 'Enabled'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks', value: 'ChangedInBootCycle', operation: delete}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\KernelShadowStacks', value: 'WasEnabledBy', operation: delete}
+
+  # Credential Guard (Win11+)
+  # src: T1-g §6.3 - Scenarios\CredentialGuard\Enabled=0 + marker cleanup
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\CredentialGuard'
+    value: 'Enabled'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\CredentialGuard', value: 'ChangedInBootCycle', operation: delete}
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard\Scenarios\CredentialGuard', value: 'WasEnabledBy', operation: delete}
+
+  # LSA Protection (24H2+) off
+  # src: T1-g §6.3 - Control\Lsa\RunAsPPL=0
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\Lsa'
+    value: 'RunAsPPL'
+    data: '0'
+    type: REG_DWORD
+
+  # VBS runtime itself (24H2+) off - written last so no enabled scenario is left pointing
+  # at a disabled VBS layer
+  # src: T1-g §6.3 - DeviceGuard\EnableVirtualizationBasedSecurity=0
+  # https://learn.microsoft.com/en-us/windows-hardware/customize/desktop/unattend/microsoft-windows-deviceguard-unattend-enablevirtualizationbasedsecurity
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\DeviceGuard'
+    value: 'EnableVirtualizationBasedSecurity'
+    data: '0'
+    type: REG_DWORD

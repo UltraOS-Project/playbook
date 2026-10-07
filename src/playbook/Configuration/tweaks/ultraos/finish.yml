@@ -1,0 +1,69 @@
+---
+title: UltraOS Finish
+description: >-
+  Generates the install report, re-enables the notifications muted during
+  deployment, secures the PowerShell execution policy and writes the final
+  UltraOS markers.
+actions:
+  # ---------------------------------------------------------------------------
+  # Build the post-install report (the UltraOS differentiator): diffs the
+  # pre-run Backups snapshot against the live system and writes
+  # %WinDir%\UltraOS\install-report.html + install-report.txt.
+  # src: research/execution-performance-packaging.md section 6.2 · preset: all
+  # ---------------------------------------------------------------------------
+  - !writeStatus: {status: 'Generating install report'}
+  - !powerShell:
+    command: '.\REPORT.ps1'
+    exeDir: true
+    wait: true
+    weight: 2
+
+  # ---------------------------------------------------------------------------
+  # Re-enable toast notifications (undo of the start.yml deployment mute).
+  # Creates the keys first so a clean profile cannot make the write a no-op.
+  # src: Atlas ENABLENOTIFS.cmd re-enable pattern (GPL-3.0, adapted) · preset: all
+  # ---------------------------------------------------------------------------
+  - !powerShell:
+    command: |
+      $toast = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\PushNotifications'
+      if (-not (Test-Path $toast)) { New-Item -Path $toast -Force | Out-Null }
+      Set-ItemProperty -Path $toast -Name 'ToastEnabled' -Value 1 -Type DWord
+      $settings = 'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Notifications\Settings'
+      if (-not (Test-Path $settings)) { New-Item -Path $settings -Force | Out-Null }
+      Set-ItemProperty -Path $settings -Name 'NOC_GLOBAL_SETTING_TOASTS_ENABLED' -Value 1 -Type DWord
+      exit 0
+    runas: currentUserElevated
+    wait: true
+
+  # ---------------------------------------------------------------------------
+  # Keep local scripts runnable while requiring signatures for downloaded ones
+  # (replaces the wizard's temporary Unrestricted policy with a safe default).
+  # src: Atlas custom.yml tail parity (GPL-3.0) · preset: all
+  # ---------------------------------------------------------------------------
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\PowerShell\1\ShellIds\Microsoft.PowerShell'
+    value: 'ExecutionPolicy'
+    data: 'RemoteSigned'
+    type: REG_SZ
+
+  # ---------------------------------------------------------------------------
+  # Final markers: ReportPath (static) + FinishedAt (dynamic timestamp) must be
+  # written in ONE PowerShell block because FinishedAt needs runtime data.
+  # Read by the UltraOS folder toggles, future upgrades and support tooling.
+  # src: 01-architecture section 8 registry conventions · preset: all
+  # ---------------------------------------------------------------------------
+  - !powerShell:
+    command: |
+      $markers = 'HKLM:\SOFTWARE\UltraOS\SetupOptions'
+      if (-not (Test-Path $markers)) { New-Item -Path $markers -Force | Out-Null }
+      $report = Join-Path ([Environment]::GetFolderPath('Windows')) 'UltraOS\install-report.html'
+      New-ItemProperty -Path $markers -Name 'ReportPath' -Value $report -PropertyType String -Force | Out-Null
+      New-ItemProperty -Path $markers -Name 'FinishedAt' -Value (Get-Date -Format 'yyyy-MM-dd HH:mm:ss') -PropertyType String -Force | Out-Null
+      exit 0
+    wait: true
+
+  # ---------------------------------------------------------------------------
+  # Final wizard status - points the user at the report (the playbook's last
+  # visible line in the AME Wizard UI).
+  # ---------------------------------------------------------------------------
+  - !writeStatus: {status: 'UltraOS installed - see the report in C:\Windows\UltraOS'}

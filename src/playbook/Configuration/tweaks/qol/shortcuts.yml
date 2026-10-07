@@ -1,0 +1,35 @@
+---
+title: Shortcuts
+description: >-
+  Creates UltraOS shortcuts on the common desktop: one to the post-install
+  folder (C:\Windows\UltraOS) and one to the install report, for every user.
+actions:
+  - !writeStatus: {status: 'Creating UltraOS shortcuts'}
+
+  # One batched PowerShell 5.1 block (no native shortcut action is enabled in the
+  # engine - !shortcut is disabled, see research/ame-wizard-format-spec.md / T1-c).
+  # Written without any double quotes so the command survives the engine's
+  # 'powershell -NoP -C "..."' argument wrapping unharmed.
+  # The folder is copied earlier in the pipeline (tweaks\ultraos\copy-folders.yml);
+  # install-report.html is generated later by REPORT.ps1 in tweaks\ultraos\finish.yml -
+  # a shortcut does not require its target to exist at creation time, and Save()
+  # overwrites, so this is safe on re-runs.
+  # src: Atlas tweaks/misc/create-shortcuts.yml + Executables/SHORTCUTS.ps1 (WScript.Shell
+  #      pattern; here simplified to the machine-wide Public desktop) · preset: all
+  - !powerShell:
+    command: |
+      $windir = [Environment]::GetFolderPath('Windows')
+      $ultraos = Join-Path $windir 'UltraOS'
+      $desktop = [Environment]::GetFolderPath('CommonDesktopDirectory')
+      $shell = New-Object -ComObject WScript.Shell
+
+      $folderLink = $shell.CreateShortcut((Join-Path $desktop 'UltraOS.lnk'))
+      $folderLink.TargetPath = $ultraos
+      $folderLink.Description = 'UltraOS post-install folder: toggles, tools and backups'
+      $folderLink.Save()
+
+      $reportLink = $shell.CreateShortcut((Join-Path $desktop 'UltraOS Install Report.lnk'))
+      $reportLink.TargetPath = (Join-Path $ultraos 'install-report.html')
+      $reportLink.Description = 'UltraOS installation report'
+      $reportLink.Save()
+    wait: true

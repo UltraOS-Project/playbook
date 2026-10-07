@@ -1,0 +1,41 @@
+---
+title: Windows Update Policy
+description: >-
+  Opt-in notify-only Windows Update policy: nothing downloads or installs
+  automatically - the user stays in control from Settings > Windows Update.
+  The Windows Update services are never disabled.
+option: 'wu-notify'
+actions:
+  - !writeStatus: {status: 'Setting Windows Update to notify only'}
+
+  # NEVER full disable: wuauserv, UsoSvc, DoSvc and TrustedInstaller are on the
+  # never-touch list (01-architecture §7.7). This file changes POLICY values only -
+  # updates keep working, they just stop installing on their own. Removing both
+  # values below restores stock fully-automatic updates (covered by revert.yml and
+  # the 'Automatic Updates' toggle in the UltraOS folder).
+
+  # NoAutoUpdate=1: automatic download/install is turned off - the user triggers
+  # 'Check for updates' and installs manually, matching the wizard option label
+  # 'Notify only (manual install)'.
+  # TRADE-OFF (Atlas deliberately skips this value, see their comment 'Breaks
+  # "Receive updates for other Microsoft products"'): with NoAutoUpdate=1 that
+  # Settings toggle no longer takes effect - Office/other-product updates come with
+  # the next manual check instead of on their own schedule.
+  # src: T3-g build spec (main agent) · Atlas AtlasDesktop/3. General Configuration/
+  #      Automatic Updates/Disable Automatic Updates (default).cmd · option: wu-notify
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+    value: 'NoAutoUpdate'
+    data: '1'
+    type: REG_DWORD
+
+  # AUOptions=2: 'notify for download and notify for install' - Atlas's own
+  # notify-only mechanism, kept as the belt-and-braces companion so the policy still
+  # degrades to notify-only if a future servicing change ignores NoAutoUpdate.
+  # src: Atlas AtlasDesktop 'Automatic Updates' toggle (AUOptions=2, direct registry form)
+  #      + T1-g services dossier 'Automatic Updates' row · option: wu-notify
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU'
+    value: 'AUOptions'
+    data: '2'
+    type: REG_DWORD

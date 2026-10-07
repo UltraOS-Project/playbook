@@ -1,0 +1,39 @@
+---
+title: Classic Context Menu
+description: >-
+  Restores the full Windows 10 style right-click context menu on Windows 11 by
+  overriding the Win11 context menu COM handler with an empty in-proc server entry.
+option: '!preset-safe'
+builds: [ '>=22000' ]
+actions:
+  - !writeStatus: {status: 'Restoring the classic context menu'}
+
+  # Mechanism (Atlas): the CLSID {86ca1aa0-34aa-4e8b-a509-50c905bae2a2} InprocServer32
+  # key in HKCU shadows the HKLM handler in the merged HKCR view. The (Default) value
+  # must be an EXPLICIT empty string - an absent default would let the real HKLM server
+  # path shine through, so a bare key add alone is not enough.
+  #
+  # NOTE for maintainers: the engine's native form for writing a key's default value is
+  # !registryValue with value: '' (Atlas uses exactly that). Our validator currently
+  # rejects an empty value name, so the default value is written with reg add /ve below
+  # instead - the resulting registry state is identical to Atlas's value/data pair and to
+  # the canonical .reg form @="".
+  #
+  # Key add (native): creates the key in every user hive via the engine's all-users
+  # scope and declares the HKCU path for the default-user hive mirror (APPLYHIVE.ps1).
+  # src: Atlas tweaks/qol/shell/restore-old-context-menu.yml · preset: balanced
+  - !registryKey:
+    path: 'HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32'
+    operation: add
+
+  # Empty (Default) value write. Quote-free command (the path contains no spaces), which
+  # keeps it safe through the engine's powershell -C argument wrapping. Idempotent; the
+  # same reg add form Atlas uses as its OOBE fallback, applied on every run so both the
+  # normal and the OOBE paths get the explicit empty default.
+  # src: Atlas tweaks/qol/shell/restore-old-context-menu.yml · preset: balanced
+  - !powerShell:
+    command: 'reg add HKCU\Software\Classes\CLSID\{86ca1aa0-34aa-4e8b-a509-50c905bae2a2}\InprocServer32 /ve /t REG_SZ /f'
+    wait: true
+
+  # Takes effect after explorer restarts; UltraOS never force-restarts explorer during
+  # the run (reboot-pending is reported in the install report instead).

@@ -1,0 +1,96 @@
+---
+title: Visual Extras
+description: >-
+  Extra visual changes for the Extreme preset: transparency effects off,
+  animations minimized via the custom visual effects set, dynamic lighting off
+  and the Settings ad banner disabled.
+option: 'preset-extreme'
+actions:
+  - !writeStatus: {status: 'Applying visual extras'}
+
+  # --- Transparency effects off (acrylic/blur behind windows and taskbar) ---
+  # src: winutil tools/autounattend.xml (MIT; credited in NOTICE) - Themes\Personalize\EnableTransparency · preset: extreme
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize'
+    value: 'EnableTransparency'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Animations minimized (custom visual effects set) ---
+  # Keeps font smoothing, full-window drag, thumbnails and icon previews;
+  # removes min/max animations, taskbar animations, Aero Peek and thumbnail hibernation.
+  # VisualFXSetting 3 = 'custom', so the individual values below are honored.
+  # src: Atlas tweaks/qol/visual-effects.yml · preset: extreme
+  - !registryValue:
+    path: 'HKCU\Control Panel\Desktop'
+    value: 'FontSmoothing'
+    data: '2'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKCU\Control Panel\Desktop'
+    value: 'UserPreferencesMask'
+    data: '9012038010000000'
+    type: REG_BINARY
+  - !registryValue:
+    path: 'HKCU\Control Panel\Desktop'
+    value: 'DragFullWindows'
+    data: '1'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKCU\Control Panel\Desktop\WindowMetrics'
+    value: 'MinAnimate'
+    data: '0'
+    type: REG_SZ
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'ListviewAlphaSelect'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'IconsOnly'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'TaskbarAnimations'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\Advanced'
+    value: 'ListviewShadow'
+    data: '1'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\Explorer\VisualEffects'
+    value: 'VisualFXSetting'
+    data: '3'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\DWM'
+    value: 'EnableAeroPeek'
+    data: '0'
+    type: REG_DWORD
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Windows\DWM'
+    value: 'AlwaysHibernateThumbnails'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Dynamic lighting off (RGB peripherals) ---
+  # src: Atlas tweaks/qol/disable-dynamic-lighting.yml · preset: extreme
+  - !registryValue:
+    path: 'HKCU\Software\Microsoft\Lighting'
+    value: 'AmbientLightingEnabled'
+    data: '0'
+    type: REG_DWORD
+    builds: [ '>=22000' ]
+
+  # --- Settings app banner off (M365-style 'ValueBanner' advertisements) ---
+  # src: Atlas tweaks/qol/disable-win11-settings-banner.yml · preset: extreme
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\ValueBanner.IdealStateFeatureControlProvider'
+    value: 'ActivationType'
+    data: '0'
+    type: REG_DWORD
+    builds: [ '>=22000' ]

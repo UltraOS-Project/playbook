@@ -1,0 +1,75 @@
+---
+title: Block Bloatware Reinstalls
+description: >-
+  Stops the Windows Update OOBE orchestrator from auto-installing the new Outlook
+  and Dev Home after they were removed, and blocks the consumer Teams chat
+  auto-install. Sponsored/consumer app install prevention (CloudContent policy +
+  ContentDeliveryManager) belongs to the privacy module and is intentionally NOT
+  duplicated here - see tweaks\privacy\cloud-content.yml (T3-b).
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Blocking bloatware reinstalls'}
+  # src: T1-e 8.5 (MS Learn control-install) + 3.1 (Atlas appx.yml) · preset: balanced
+
+  # --- New Outlook for Windows (Microsoft 365 Outlook) ------------------------------------
+  # OutlookForWindows ships via Windows Update, not the Store (T1-e 8.5). MS Learn
+  # (control-install): removal is only honored when the OOBE updater entry is cleared -
+  # the orchestrator has respected deprovisioning since the March 2024 CU. Belt and
+  # braces below: mark the updater work as completed (workCompleted=1, the pattern this
+  # playbook uses) AND delete the updater entry if it exists as a plain value (engine
+  # delete is a silent no-op when absent).
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe\OutlookUpdate'
+    value: 'workCompleted'
+    data: '1'
+    type: REG_DWORD
+  # src: T1-e 8.5 (MS Learn control-install) + main-agent T3-a instruction · preset: balanced
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe'
+    value: 'OutlookUpdate'
+    operation: delete
+  # src: T1-e 8.5 (MS-documented deletion variant - no-op if the entry is a subkey) ·
+  # preset: balanced
+
+  # --- Dev Home (deprecated by Microsoft, delivered the same way) --------------------------
+  # Same UScheduler_Oobe pattern as Outlook (appx removal happens in
+  # appx-removals.yml Balanced tier; this file keeps it from coming back).
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe\DevHomeUpdate'
+    value: 'workCompleted'
+    data: '1'
+    type: REG_DWORD
+  # ⚠️ UNVERIFIED: exact UScheduler entry name for Dev Home (community pattern; T1-e
+  # 8.8 confirms Dev Home deprecation but not the orchestrator key name). Harmless if
+  # the entry never exists on the target build. · preset: balanced
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe'
+    value: 'DevHomeUpdate'
+    operation: delete
+  # src: same pattern as OutlookUpdate delete above · preset: balanced
+
+  # Block the whole OOBE updater class for Outlook outright (MS Learn-documented
+  # value, Win10-proven; defense-in-depth on Win11 24H2-26H2).
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\WindowsUpdate\Orchestrator\UScheduler_Oobe'
+    value: 'BlockedOobeUpdaters'
+    data: '["MS_Outlook"]'
+    type: REG_SZ
+  # src: T1-e 8.5 (MS Learn control-install, Windows 10 prevention value) · preset: balanced
+
+  # --- Consumer Teams / Chat auto-install ---------------------------------------------------
+  # Pairs with the Teams removals in appx-removals.yml: stops Windows from
+  # re-provisioning the consumer chat/Teams app for new users.
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Communications'
+    value: 'ConfigureChatAutoInstall'
+    data: '0'
+    type: REG_DWORD
+  # src: T1-e 3.1 (Atlas appx.yml verbatim value) + 5.2 + 6.6 · preset: balanced
+
+  # Related blockers that live in OTHER modules (do not duplicate here):
+  # - Sponsored/consumer apps (CloudContent DisableWindowsConsumerFeatures +
+  #   ContentDeliveryManager zeros) -> tweaks\privacy\cloud-content.yml (T3-b)
+  # - Copilot app re-delivery (TurnOffWindowsCopilot policy, CopilotPWAPin) ->
+  #   tweaks\privacy\ai-features.yml (T3-b); EdgeUpdate-based Copilot push blocking is
+  #   ⚠️ UNVERIFIED (T1-e 8.1) and intentionally not shipped in v1.

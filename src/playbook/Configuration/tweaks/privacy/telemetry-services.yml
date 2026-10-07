@@ -1,0 +1,78 @@
+---
+title: Disable Telemetry Services
+description: >-
+  Stops and disables the Connected User Experiences and Telemetry (DiagTrack) service,
+  its ETW autologger and stored logs, and disables Windows Error Reporting along with
+  its policy layer. Telemetry-related service changes live in this file (T3-c's
+  services.yml owns the general service set - see 01-architecture §5).
+# Derived in part from the Atlas playbook (Atlas-OS/Atlas, GPL-3.0) - see NOTICE.
+# HONEST FLOOR (T1-f §2.2/§12.1): on Home/Pro, AllowTelemetry=0 behaves as level 1
+# (Required diagnostic data). The DiagTrack service/autologger disable below is what
+# actually stops uploads on Home/Pro. WU/licensing/Defender traffic remains regardless.
+actions:
+  - !writeStatus: {status: 'Stopping telemetry services'}
+
+  # ------------------------------------------------------------------
+  # DiagTrack - stop service (runs at every preset; trigger-started, so on
+  # Safe it may be started again by Windows - Balanced disables it below)
+  # ------------------------------------------------------------------
+
+  # src: T1-f §2.1/§2.2 · matrix row 26 · preset: safe
+  - !service: {name: 'DiagTrack', operation: stop, ignoreErrors: true}
+
+  # ------------------------------------------------------------------
+  # DiagTrack - disable service + autologger + internals + clear logs
+  # ------------------------------------------------------------------
+
+  # src: T1-f §2.1 · matrix row 27 · preset: balanced
+  - !service: {name: 'DiagTrack', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Suppresses the "we changed your diagnostic data level" toast
+  # src: T1-f §2.2 A5 · matrix row 27 · preset: balanced
+  - !registryValue: {path: 'HKCU\SOFTWARE\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack', value: 'ShowedToastAtLevel', data: '1', type: REG_DWORD, option: '!preset-safe'}
+
+  # EventTranscript = local SQL CE store that feeds DiagTrack; MiniTrace = ETW slot
+  # src: T1-f §2.2 A6-A7 · matrix row 27 · preset: balanced
+  - !registryValue: {path: 'HKLM\Software\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack\EventTranscriptKey', value: 'EnableEventTranscript', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\Software\Microsoft\Windows\CurrentVersion\Diagnostics\DiagTrack\EventTranscriptKey', value: 'MiniTraceSlotEnabled', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # DiagTrack ETW autologger session off
+  # src: T1-f §2.2 A9 · matrix row 27 · preset: balanced
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\WMI\Autologger\Diagtrack-Listener', value: 'Start', data: '0', type: REG_DWORD, option: '!preset-safe'}
+
+  # Clear already-collected DiagTrack logs (no native file-delete action exists)
+  # src: T1-f §2.2 A10 · matrix row 27 · preset: balanced
+  - !powerShell:
+    command: |
+      Remove-Item -Path "$env:ProgramData\Microsoft\Diagnosis\ETLLogs\AutoLogger\DiagTrack*" -Force -ErrorAction SilentlyContinue
+      Remove-Item -Path "$env:ProgramData\Microsoft\Diagnosis\ETLLogs\ShutdownLogger\DiagTrack*" -Force -ErrorAction SilentlyContinue
+      exit 0
+    wait: true
+    option: '!preset-safe'
+
+  # ------------------------------------------------------------------
+  # Windows Error Reporting - services (WerSvc + wermgr) and policy layer
+  # Trade-off (T1-f §2.1): MS IoT guidance says "do not disable" WerSvc -
+  # crash reporting stops, error dialogs change slightly and some installers'
+  # crash handling degrades. Matrix keeps the disable at Balanced+.
+  # ------------------------------------------------------------------
+
+  # src: T1-f §2.1 · matrix row 28 · preset: balanced
+  - !service: {name: 'WerSvc', operation: change, startup: 4, option: '!preset-safe'}
+
+  # Older WER service name - same family as WerSvc; may not exist on Win11 (tolerate)
+  # src: T1-f §2.1 · preset: balanced
+  - !service: {name: 'wermgr', operation: change, startup: 4, ignoreErrors: true, option: '!preset-safe'}
+
+  # WER registry block (atlas/disable-win-error-reporting.yml parity)
+  # src: T1-f §4.12 · matrix row 29 · preset: balanced
+  - !registryValue: {path: 'HKCU\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting', value: 'Disabled', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting', value: 'Disabled', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting', value: 'DontShowUI', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting', value: 'LoggingDisabled', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Windows Error Reporting', value: 'DontSendAdditionalData', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\PCHealth\ErrorReporting', value: 'DoReport', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\PCHealth\ErrorReporting', value: 'ShowUI', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\Software\Microsoft\Windows\CurrentVersion\Component Based Servicing', value: 'DisableWerReporting', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Settings', value: 'DisableSendGenericDriverNotFoundToWER', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DeviceInstall\Settings', value: 'DisableSendRequestAdditionalSoftwareToWER', data: '1', type: REG_DWORD, option: '!preset-safe'}

@@ -1,0 +1,119 @@
+---
+title: System Performance
+description: >-
+  Low-risk system tuning: Fault Tolerant Heap off, folder template discovery off,
+  quieter automatic maintenance, sleep-study logging off, service-host grouping,
+  foreground priority boost and reduced NTFS write churn.
+# Balanced tier: runs on Balanced and Extreme presets, skipped on Safe (01-architecture §4)
+option: '!preset-safe'
+actions:
+  - !writeStatus: {status: 'Tuning system performance'}
+
+  # --- Fault Tolerant Heap off (x64 only - FTH does not exist on ARM64) --------
+  # FTH silently applies heap shims to legacy apps that crash repeatedly and taxes
+  # them afterwards. Reset existing FTH state first, then disable the service.
+  # src: T1-g §6.6 (Atlas disable-fth.yml) ·
+  # https://devblogs.microsoft.com/oldnewthing/20120125-00/?p=8463 · preset: balanced
+  - !run: {exe: 'rundll32.exe', args: 'fthsvc.dll,FthSysprepSpecialize', cpuArch: 'X64'}
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Microsoft\Fth'
+    value: 'Enabled'
+    data: '0'
+    type: REG_DWORD
+    cpuArch: 'X64'
+
+  # --- Automatic folder type discovery off --------------------------------------
+  # Explorer stops sniffing folder contents to pick a template (fixes misdetected
+  # 'Pictures' folders, minor CPU win). Resets already-learned folder templates,
+  # then pins FolderType to 'NotSpecified' for all folders.
+  # Native !registryValue is deliberately NOT used here: this 'Local Settings'
+  # (Classes hive) path hits a known AME engine hive issue - Atlas ships the same
+  # reg.exe workaround and comments the native action out (T1-g §6.11).
+  # src: T1-g §6.11 (Atlas disable-auto-folder-discovery.yml) · preset: balanced
+  - !powerShell:
+    command: |
+      # Reset already-detected folder templates; suppress error if 'Bags' is absent
+      reg.exe delete 'HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags' /f 2> $null
+      reg.exe add 'HKCU\Software\Classes\Local Settings\Software\Microsoft\Windows\Shell\Bags\AllFolders\Shell' /v 'FolderType' /t REG_SZ /d 'NotSpecified' /f
+    wait: true
+    runas: currentUserElevated
+
+  # --- Automatic maintenance: no wake-ups ----------------------------------------
+  # Maintenance itself stays ENABLED - it is needed for auto-defrag/TRIM and more.
+  # Only stop it from waking the PC. The 'MaintenanceDisabled=1' variant is
+  # deliberately NOT set (Atlas ships it commented out for the same reason).
+  # src: T1-g §4.5 (Atlas config-automatic-maintenance.yml) ·
+  # https://www.elevenforum.com/t/enable-or-disable-automatic-maintenance-to-wake-up-computer-in-windows-11.16690/ · preset: balanced
+  - !registryValue:
+    path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\Task Scheduler\Maintenance'
+    value: 'WakeUp'
+    data: '0'
+    type: REG_DWORD
+
+  # --- Sleep Study / power diagnostics logging off --------------------------------
+  # Diagnostic event logs may not exist on non-Modern-Standby hardware, so errors
+  # are ignored. The AnalyzeSystem task belongs to this block (Atlas parity) -
+  # T3-d: do not duplicate it in tweaks/tasks/*.
+  # src: T1-g §4.5 (Atlas disable-sleep-study.yml) · preset: balanced
+  - !run:
+    exe: 'wevtutil.exe'
+    args: 'set-log "Microsoft-Windows-SleepStudy/Diagnostic" /e:false'
+    ignoreErrors: true
+  - !run:
+    exe: 'wevtutil.exe'
+    args: 'set-log "Microsoft-Windows-Kernel-Processor-Power/Diagnostic" /e:false'
+    ignoreErrors: true
+  - !run:
+    exe: 'wevtutil.exe'
+    args: 'set-log "Microsoft-Windows-UserModePowerService/Diagnostic" /e:false'
+    ignoreErrors: true
+  - !scheduledTask: {path: '\Microsoft\Windows\Power Efficiency Diagnostics\AnalyzeSystem', operation: disable, ignoreErrors: true}
+
+  # --- Service host splitting off (services grouped into fewer svchost.exe) -------
+  # With >3.5 GB RAM Windows splits services across many svchost.exe processes.
+  # Setting per-service SvcHostSplitDisable=1 forces grouping: fewer processes and
+  # roughly 50-150 MB RAM saved (varies). TRADE-OFF: a crashing service can now
+  # take down its whole group (bigger blast radius) and per-service CPU isolation
+  # is lost - accepted at Balanced for the RAM savings. Xbox services are excluded
+  # because grouping them broke Game Bar (exclusion kept from Atlas verbatim).
+  # The '"""Registry::$_"""' triple-quoting is an AME engine inline-quoting
+  # workaround, kept verbatim from Atlas.
+  # src: T1-g §6.5 (Atlas disable-service-host-split.yml) ·
+  # https://learn.microsoft.com/en-us/windows/application-management/svchost-service-refactoring · preset: balanced
+  - !powerShell:
+    command: |
+      Get-ChildItem 'HKLM:\SYSTEM\CurrentControlSet\Services' |
+        Where-Object { $_.Name -notmatch 'Xbl|Xbox' } |
+        Foreach-Object {
+          if ($null -ne (Get-ItemProperty -Path """Registry::$_""" -EA 0).Start) {
+            Set-ItemProperty -Path """Registry::$_""" -Name 'SvcHostSplitDisable' -Type DWORD -Value 1 -Force -EA 0
+          }
+        }
+    wait: true
+
+  # --- Foreground priority boost ----------------------------------------------------
+  # Win32PrioritySeparation = 38 decimal (0x26 hex): short, variable quantums with
+  # a high foreground boost - snappier foreground apps under load; background
+  # services get slightly starved. Stock Windows 11 desktop default = 2 (0x02).
+  # Modest, real, safe. ⚠️ Verify semantics are unchanged on 26H2 RTM (unchanged
+  # since Vista - very stable assumption).
+  # src: T1-g §6.7 (Atlas win32-priority-separation.yml) · preset: balanced
+  - !registryValue:
+    path: 'HKLM\SYSTEM\CurrentControlSet\Control\PriorityControl'
+    value: 'Win32PrioritySeparation'
+    data: '38'
+    type: REG_DWORD
+
+  # --- NTFS ---------------------------------------------------------------------------
+  # disablelastaccess=1: stop Last-Access-Time updates (less write churn + privacy).
+  # 8dot3name set 1: no 8.3 short-name creation (faster file creation in large
+  # directories; only breaks ancient 16-bit/very old installers).
+  # src: T1-g §6.8 (Atlas optimize-ntfs.yml) · preset: balanced
+  - !run: {exe: 'fsutil', args: 'behavior set disablelastaccess 1'}
+  - !run: {exe: 'fsutil', args: '8dot3name set 1'}
+
+  # --- REJECTED PLACEBO (documented, never applied) ------------------------------------
+  # No pagefile tweaks are shipped. Atlas itself disables its 'disable-paging.yml'
+  # as "likely placebo" (T1-g §6.4): DisablePagingExecutive=1 / DisablePageCombining=1
+  # have near-zero measurable benefit on modern systems, and fully deleting the
+  # pagefile crashes applications with VirtualAlloc commit assumptions. Do not add.
