@@ -1,5 +1,5 @@
 ====================================================================
- U L T R A S O S   v1.1.0  -  READ ME FIRST
+ U L T R A S O S   v1.1.1  -  READ ME FIRST
  Windows 11 24H2 / 25H2 / 26H2 optimization playbook for AME Wizard
 ====================================================================
 
@@ -11,7 +11,7 @@ finished install in about ten minutes. The full guide lives at:
 
 WHAT'S IN THIS DOWNLOAD
 -----------------------
-- UltraOS-Playbook-v1.1.0.apbx    the playbook (do NOT unzip it -
+- UltraOS-Playbook-v1.1.1.apbx    the playbook (do NOT unzip it -
                                   AME Wizard opens it directly)
 - SHA256SUMS.txt                  hashes to verify the download
 - README-FIRST.txt                this file
@@ -38,7 +38,7 @@ REQUIREMENTS (the wizard checks all of these)
 ------------------
 1. Install AME Wizard: https://ameliorated.io
 2. Toggle Defender off (see above).
-3. Open UltraOS-Playbook-v1.1.0.apbx in AME Wizard, pick a preset
+3. Open UltraOS-Playbook-v1.1.1.apbx in AME Wizard, pick a preset
    (Balanced is the recommended default), review the extra options
    (all optional, all off by default), choose a browser, press Start.
 
@@ -55,8 +55,8 @@ VERIFY THE DOWNLOAD (recommended)
 ---------------------------------
 Compare the hash of the .apbx against SHA256SUMS.txt:
 
-    Windows PowerShell:  Get-FileHash .\UltraOS-Playbook-v1.1.0.apbx
-    Linux/macOS:         sha256sum UltraOS-Playbook-v1.1.0.apbx
+    Windows PowerShell:  Get-FileHash .\UltraOS-Playbook-v1.1.1.apbx
+    Linux/macOS:         sha256sum UltraOS-Playbook-v1.1.1.apbx
 
 If the hash does not match, delete the download and get a fresh
 copy from the official releases page.
@@ -84,6 +84,17 @@ Optional: run Test-WithRealWizard.cmd (included in this download) to
 verify the checksum, test the container exactly like the engine reads
 it, and launch the wizard with the playbook preloaded.
 
+
+WHAT'S NEW IN 1.1.1
+-------------------
+CRITICAL HOTFIX
+- Fixed the install halting with "error code: 3" while copying the
+  UltraOS folder (it was deployed to the wrong location,
+  Windows\UltraOSFolder instead of Windows\UltraOS). If your 1.0.x or
+  1.1.0 run stopped there: just run this version - it cleans up the
+  leftover and completes the install.
+- Upgrade runs no longer delete the freshly installed UltraOS folder.
+- Undo.cmd now uses Windows (CRLF) line endings like every other .cmd.
 
 WHAT'S NEW IN 1.1.0
 -------------------

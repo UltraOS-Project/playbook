@@ -2,19 +2,30 @@
 title: UltraOS Root Playbook File
 description: Runs all UltraOS playbook modules in a speed-optimized order with backup, report and rollback support
 actions:
-  # Load the default-user hive so per-user tweaks can be mirrored for future users
+  # Load the default-user hive so per-user tweaks can be mirrored for future users.
+  # v1.1.1: best-effort unload first - v1.0.0-v1.1.0 could halt between load and
+  # unload (the copy-folders exit-3 bug), leaving the hive loaded, which made the
+  # re-run's 'reg load' fail. A failed unload is the normal case on a clean system.
   - !powerShell:
-    command: 'reg load HKU\AME_UserHive_Default C:\Users\Default\NTUSER.DAT'
+    command: |
+      reg unload HKU\AME_UserHive_Default 2>$null
+      reg load HKU\AME_UserHive_Default C:\Users\Default\NTUSER.DAT
+      exit $LASTEXITCODE
     oobe: false
     wait: true
 
   - !writeStatus: {status: 'Preparing UltraOS'}
 
+  # Early setup - cleans up old UltraOS installs (upgrade path), mutes
+  # notifications during deployment and writes setup markers.
+  # v1.1.1: must run BEFORE copy-folders.yml - start.yml's onUpgrade cleanup
+  # removes the old Windows\UltraOS "(recreated later by copy-folders.yml)";
+  # with the previous order an upgrade run deleted the fresh deployment right
+  # after copying it. Order is pinned by scripts/validate-playbook.py.
+  - !task: {path: 'ultraos\start.yml'}
+
   # MODULE: UltraOS core tooling (copies the post-install folder to Windows\UltraOS)
   - !task: {path: 'tweaks\ultraos\copy-folders.yml'}
-
-  # Early setup - cleans up old UltraOS installs, mutes notifications during deployment
-  - !task: {path: 'ultraos\start.yml'}
 
   # Restore point (wizard option rp-on)
   - !writeStatus: {status: 'Creating System Restore point'}

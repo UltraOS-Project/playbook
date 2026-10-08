@@ -10,25 +10,47 @@ actions:
   # Copy pattern derived from Atlas-OS/Atlas 'Configuration/custom.yml' (GPL-3.0):
   # https://github.com/Atlas-OS/Atlas - one batched PowerShell block, source
   # existence check, explicit exit codes, halt on failure. Old-folder cleanup
-  # on upgrades lives in ultraos/start.yml (runs after this file on upgrade
-  # paths; safe since v1.0.1 because UpgradableFrom=any).
+  # on upgrades lives in ultraos/start.yml (which main.yml runs BEFORE this
+  # file - v1.1.1 - so an upgrade cleans the old folder and then deploys the
+  # fresh one; safe since v1.0.1 because UpgradableFrom=any).
   - !powerShell:
     command: |
       $ErrorActionPreference = 'Stop'
       $windir = [Environment]::GetFolderPath('Windows')
       $source = 'UltraOSFolder'
       if (!(Test-Path $source)) { exit 1 }
+      # v1.1.1 fix: deploy under the FINAL name Windows\UltraOS. Copy-Item
+      # preserves the source folder's name, so the v1.0.0-v1.1.0 form
+      # 'Copy-Item -Path $source -Destination $windir' deployed the folder as
+      # Windows\UltraOSFolder while every consumer (playbook.conf UI text,
+      # shortcuts.yml, README.txt, the REPORT/UNDO tooling and the tooling
+      # deploy below) expects Windows\UltraOS - fresh installs halted at
+      # exit 3. Copying the folder CONTENTS into an explicitly created
+      # Windows\UltraOS is correct for fresh installs AND for re-runs over an
+      # existing deployment (merge semantics - user backups and the install
+      # report are never deleted).
+      $dest = Join-Path $windir 'UltraOS'
       try {
-          Copy-Item -Path $source -Destination $windir -Force -Recurse
+          New-Item -ItemType Directory -Path $dest -Force | Out-Null
+          Get-ChildItem -LiteralPath $source -Force | ForEach-Object {
+              Copy-Item -LiteralPath $_.FullName -Destination $dest -Force -Recurse
+          }
       } catch {
           Write-Output $_.Exception.Message
           exit 2
       }
+      # Best-effort: remove the misplaced Windows\UltraOSFolder left behind
+      # by the broken copy on machines whose v1.0.0-v1.1.0 run halted here.
+      $misplaced = Join-Path $windir 'UltraOSFolder'
+      if (Test-Path $misplaced) {
+          Remove-Item -LiteralPath $misplaced -Recurse -Force -ErrorAction SilentlyContinue
+      }
       # Deploy the shared tooling scripts into Windows\UltraOS\Scripts (next to
-      # the toggle workers that ship inside UltraOSFolder\Scripts). The folder
-      # copy above already created the destination. These scripts are owned by
-      # other agents (T3-i rollback/report tooling, T3-a Edge unlock) and are
-      # used by the 'Uninstall UltraOS' toggle and support workflows.
+      # the toggle workers that ship inside UltraOSFolder\Scripts). These scripts
+      # are owned by other agents (T3-i rollback/report tooling, T3-a Edge
+      # unlock) and are used by the 'Uninstall UltraOS' toggle and support
+      # workflows. Regressions here are caught statically by the deployed-layout
+      # simulation in scripts/validate-playbook.py (v1.1.1).
       $scriptsDest = Join-Path $windir 'UltraOS\Scripts'
       if (!(Test-Path $scriptsDest)) { exit 3 }
       foreach ($script in @(

@@ -16,7 +16,7 @@ actions:
   - !registryValue:
     path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\OEMInformation'
     value: 'Model'
-    data: 'UltraOS Playbook v1.1.0'
+    data: 'UltraOS Playbook v1.1.1'
     type: REG_SZ
 
   # Support block: UltraOS is community-supported via the project repository.
@@ -38,7 +38,7 @@ actions:
   - !registryValue:
     path: 'HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion'
     value: 'RegisteredOrganization'
-    data: 'UltraOS Playbook v1.1.0'
+    data: 'UltraOS Playbook v1.1.1'
     type: REG_SZ
 
   # NOTE: Atlas also renames the boot entry via 'bcdedit /set description'. UltraOS

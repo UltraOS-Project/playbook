@@ -1,6 +1,6 @@
 # UNDO.ps1 - UltraOS partial rollback (run via Undo.cmd, or the Tools page of
 #            the UltraOS folder)
-# UltraOS v1.1.0 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
+# UltraOS v1.1.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 #
 # Provenance: rollback design research/execution-performance-packaging.md 5.2;
 # services-Start restore pattern derived from the Atlas playbook's BACKUP.ps1 +
@@ -216,7 +216,7 @@ else {
 Write-Output ''
 Write-Output 'UNDO: DONE (partial - see the scope notes at the top of this script).'
 Write-Output 'UNDO: - Registry policy tweaks and visual preferences were NOT inverted. For a full registry'
-Write-Output 'UNDO:   rollback use System Restore: run rstrui.exe and pick the "UltraOS v1.1.0" point'
+Write-Output 'UNDO:   rollback use System Restore: run rstrui.exe and pick the "UltraOS v1.1.1" point'
 Write-Output 'UNDO:   created during install (if that option was selected).'
 Write-Output 'UNDO: - A REBOOT is recommended so restored service startup values take effect.'
 Write-Output 'UNDO: - See install-report.html / install-report.txt in the same folder for what changed.'

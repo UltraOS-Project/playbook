@@ -1,5 +1,5 @@
 # BACKUP.ps1 - UltraOS pre-install state snapshot (rollback layer L1 + report baseline)
-# UltraOS v1.1.0 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
+# UltraOS v1.1.1 - GPL-3.0 - https://github.com/UltraOS-Project/playbook
 #
 # Provenance: services-export pattern derived from the Atlas playbook's BACKUP.ps1
 # (Atlas-OS/Atlas, GPL-3.0); report/baseline design from

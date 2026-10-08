@@ -1,6 +1,6 @@
 @echo off
 REM ============================================================================
-REM  UltraOS v1.1.0 - AME Wizard runtime test (run on WINDOWS)
+REM  UltraOS v1.1.1 - AME Wizard runtime test (run on WINDOWS)
 REM ----------------------------------------------------------------------------
 REM  This script performs the Windows-side runtime verification that the Linux
 REM  build sandbox cannot do (AMEWizard.exe is a Windows .NET 4.8 app):
@@ -13,14 +13,14 @@ REM    3. Launches AME Wizard with the playbook preloaded so you can click
 REM       through every page - the real load test
 REM
 REM  Usage:  double-click, or from PowerShell:
-REM          .\Test-WithRealWizard.cmd [path\to\UltraOS-Playbook-v1.1.0.apbx]
+REM          .\Test-WithRealWizard.cmd [path\to\UltraOS-Playbook-v1.1.1.apbx]
 REM ============================================================================
 setlocal enabledelayedexpansion
 set "APBX=%~1"
 if "%APBX%"=="" for %%F in ("%~dp0UltraOS-Playbook-v*.apbx") do set "APBX=%%~fF"
 if "%APBX%"=="" (
     echo [ERROR] no .apbx found next to this script.
-    echo         Drag a UltraOS-Playbook-v1.1.0.apbx onto this file or pass it as argument.
+    echo         Drag a UltraOS-Playbook-v1.1.1.apbx onto this file or pass it as argument.
     pause & exit /b 1
 )
 echo.

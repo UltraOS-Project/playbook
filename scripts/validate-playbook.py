@@ -18,6 +18,9 @@ Validates the playbook source tree:
   - orphan module files not reachable from main.yml via the !task graph
     (warns; suppress intentional standalone files with a '# standalone:'
     header comment)
+  - deployed-layout simulation of tweaks/ultraos/copy-folders.yml against
+    the real Executables tree, plus the main.yml pipeline-order pin
+    (v1.1.1 regression guard for the Windows/UltraOSFolder exit-3 bug)
   - CRLF / UTF-8 BOM inside .yml files (portability warning)
   - --stats: per-module action counts via the same custom YAML loader
 Usage: python3 scripts/validate-playbook.py [--strict] [--stats] [--files <path>...]
@@ -367,6 +370,115 @@ def main():
             if STANDALONE_MARKER_RE.search(header):
                 continue
             warn(rel, "orphan module file: not reachable from main.yml via !task includes (add it to the pipeline, or mark it '# standalone: <reason>')")
+
+    # ---- deployed-layout simulation (v1.1.1 regression guard) ----
+    # v1.0.0-v1.1.0 shipped 'Copy-Item -Path UltraOSFolder -Destination $windir'
+    # in tweaks/ultraos/copy-folders.yml. Copy-Item preserves the source
+    # folder's name, so the post-install folder deployed as Windows\UltraOSFolder
+    # while every consumer (playbook.conf UI text, shortcuts.yml, README.txt,
+    # REPORT/UNDO tooling and the tooling deploy in the same block) expects
+    # Windows\UltraOS - every fresh install halted at exit 3 (found by a user at
+    # runtime; the dry-run harness validates the engine's load pipeline, not
+    # PowerShell filesystem semantics). This check simulates the copy idioms
+    # against the real Executables tree so that class of bug cannot ship again,
+    # and pins the main.yml pipeline order (start.yml's onUpgrade cleanup
+    # removes Windows\UltraOS 'recreated later by copy-folders.yml', so
+    # start.yml must run first).
+    cf_path = CFG / "tweaks" / "ultraos" / "copy-folders.yml"
+    cf_where = "tweaks/ultraos/copy-folders.yml"
+    if not cf_path.exists():
+        err(cf_where, "missing (main.yml includes it in the core pipeline)")
+    else:
+        try:
+            cf_data = yaml.load(cf_path.read_text(encoding="utf-8"), Loader=TLoader) or {}
+        except yaml.YAMLError as e:
+            cf_data = {}
+            err(cf_where, f"YAML parse error: {e}")
+        cf_actions = cf_data.get("actions", []) if isinstance(cf_data, dict) else []
+        ps = "\n".join(str(a.get("command", "")) for a in cf_actions
+                       if isinstance(a, dict) and a.get("__tag__") == "powerShell")
+        # strip PowerShell comment lines first: the fixed block DOCUMENTS the old
+        # buggy shape inside a comment, which must not trigger the bug detector
+        ps_code = "\n".join(l for l in ps.splitlines() if not l.lstrip().startswith("#"))
+        if re.search(r"Copy-Item\s+-Path\s+\$source\s+-Destination\s+\$windir\b", ps_code):
+            err(cf_where, "bug shape: 'Copy-Item -Path $source -Destination $windir' deploys the "
+                          "folder under its package name (Windows\\UltraOSFolder), not "
+                          "Windows\\UltraOS (the v1.0.0-v1.1.0 exit-3 bug)")
+        m_src = re.search(r"\$source\s*=\s*'([^']+)'", ps_code)
+        m_dest = re.search(r"\$dest\s*=\s*Join-Path\s+\$windir\s+'([^']+)'", ps_code)
+        if not (m_src and m_dest):
+            err(cf_where, "unrecognized deploy idiom (expected a $source literal and "
+                          "$dest = Join-Path $windir '<name>') - update this check together "
+                          "with the copy block")
+        else:
+            dest_rel = m_dest.group(1).replace("\\", "/").strip("/")
+            if dest_rel != "UltraOS":
+                err(cf_where, f"deploy target 'Windows\\{m_dest.group(1)}' is not the canonical "
+                              "Windows\\UltraOS every consumer expects")
+            src_dir = EXE / m_src.group(1)
+            if not src_dir.is_dir():
+                err(cf_where, f"source folder Executables/{m_src.group(1)} not found")
+            else:
+                deployed = set()
+
+                def _add(rel):
+                    deployed.add(rel)
+                    parts = rel.split("/")
+                    for i in range(1, len(parts)):
+                        deployed.add("/".join(parts[:i]))
+
+                if re.search(r"New-Item\s+-ItemType\s+Directory\s+-Path\s+\$dest", ps_code):
+                    _add(dest_rel)
+                contents_copy = (
+                    re.search(r"Copy-Item\s+-Path\s+\(Join-Path\s+\$source\s+'\*'\)\s+-Destination\s+\$dest\b", ps_code)
+                    or re.search(r"Get-ChildItem\s+-LiteralPath\s+\$source\s+-Force[\s\S]*?Copy-Item[\s\S]*?-Destination\s+\$dest\b", ps_code)
+                )
+                if not contents_copy:
+                    err(cf_where, "unrecognized copy idiom (expected a contents-copy of $source "
+                                  "into $dest) - update this check together with the copy block")
+                else:
+                    for p in src_dir.rglob("*"):
+                        _add(f"{dest_rel}/{p.relative_to(src_dir).as_posix()}")
+                    varmap = dict(re.findall(r"\$(\w+)\s*=\s*Join-Path\s+\$windir\s+'([^']+)'", ps_code))
+                    for var in re.findall(r"if\s*\(\s*!\(Test-Path\s+\$(\w+)\)\s*\)", ps_code):
+                        lit = varmap.get(var)
+                        # only guards on windir-relative variables are in scope
+                        # here ($source / $script etc. are exeDir-relative checks)
+                        if lit is None:
+                            continue
+                        if lit.replace("\\", "/").strip("/") not in deployed:
+                            err(cf_where, f"runtime exit-guard would FAIL: Windows\\{lit} (${var}) "
+                                          "is not produced by the copy idioms in this block "
+                                          "(exit-3 class bug)")
+                    m_list = re.search(r"foreach\s+\(\$script\s+in\s+@\(([^)]*)\)\)", ps_code, re.S)
+                    if m_list:
+                        for name in re.findall(r"'([^']+)'", m_list.group(1)):
+                            if not (EXE / name).exists():
+                                err(cf_where, f"tooling script missing from Executables/: {name}")
+
+    # main.yml pipeline order (v1.1.1): start.yml's onUpgrade cleanup removes
+    # Windows\UltraOS 'recreated later by copy-folders.yml' (its own comment),
+    # so start.yml must run BEFORE copy-folders.yml - the v1.0.0-v1.1.0 order
+    # deleted the fresh deployment on upgrade runs.
+    main_path = CFG / "main.yml"
+    if main_path.exists():
+        try:
+            m_data = yaml.load(main_path.read_text(encoding="utf-8"), Loader=TLoader) or {}
+            order = [str(a.get("path", "")).replace("\\", "/")
+                     for a in m_data.get("actions", [])
+                     if isinstance(a, dict) and a.get("__tag__") == "task"]
+            i_start = order.index("ultraos/start.yml") if "ultraos/start.yml" in order else None
+            i_copy = order.index("tweaks/ultraos/copy-folders.yml") if "tweaks/ultraos/copy-folders.yml" in order else None
+            if i_start is None or i_copy is None:
+                err("main.yml", "core pipeline must include ultraos\\start.yml and "
+                                "tweaks\\ultraos\\copy-folders.yml")
+            elif i_start > i_copy:
+                err("main.yml", "ultraos\\start.yml must run BEFORE tweaks\\ultraos\\copy-folders.yml: "
+                                "start.yml's onUpgrade cleanup removes Windows\\UltraOS 'recreated "
+                                "later by copy-folders.yml' - with the reverse order an upgrade run "
+                                "deletes the fresh deployment (v1.1.1 fix)")
+        except yaml.YAMLError:
+            pass  # main.yml parse error already reported in the tree scan
 
     # ---- report ----
     print(f"Files scanned : {len(yml_files)}")

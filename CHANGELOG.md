@@ -2,6 +2,55 @@
 
 All notable changes to UltraOS are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [semantic versioning](https://semver.org/) with the caveat that "breaking" for a playbook means "an install made by an older version may need attention before upgrading" — the wizard's own upgrade flow (`Upgrade`, not *Run again*) handles version-to-version migration.
 
+## [1.1.1] — 2026-10-08
+
+Hotfix release. v1.0.0-v1.1.0 halted on every fresh install at
+`PowerShell instance exited with error code: 3` during *Copying UltraOS
+folder* (found by a user at runtime — a bug class neither the dry-run
+harness nor the validator could see: they prove the engine's load pipeline
+and the YAML's structure, not PowerShell filesystem semantics).
+
+### Fixed — the exit-3 halt
+
+- **`copy-folders.yml` deployed the post-install folder under its package name.**
+  `Copy-Item -Path UltraOSFolder -Destination $windir` preserves the source
+  folder's name, so the folder landed as `C:\Windows\UltraOSFolder` while every
+  consumer — the wizard's own UI text, `shortcuts.yml`, the folder's
+  `README.txt`, the REPORT/UNDO tooling and the tooling-script deploy in the
+  same block — expects `C:\Windows\UltraOS`. The block then failed its own
+  `Test-Path Windows\UltraOS\Scripts` sanity check and halted (exit 3). The
+  folder is now deployed by copying its **contents** into an explicitly created
+  `Windows\UltraOS` (merge semantics: a re-run never deletes user backups or
+  the install report).
+- **Machines that hit the halt self-heal on the next run**: the misplaced
+  `Windows\UltraOSFolder` left behind by the broken copy is removed
+  (best-effort) after the fixed deploy.
+
+### Fixed — two re-run / upgrade landmines found during the audit
+
+- **Upgrade runs deleted the fresh deployment.** `main.yml` ran
+  `copy-folders.yml` *before* `ultraos/start.yml`, but start.yml's upgrade
+  cleanup removes `Windows\UltraOS` "(recreated later by copy-folders.yml)" —
+  its own comment documented the intended order. The pipeline order is now
+  start.yml → copy-folders.yml, so an upgrade cleans the old folder and then
+  deploys the new one.
+- **A halted run left the default-user hive loaded**, which made the re-run's
+  `reg load HKU\AME_UserHive_Default` fail. The load is now preceded by a
+  best-effort `reg unload` (a clean system never notices; a recovering one can
+  re-run immediately — no reboot needed).
+
+### Added — the regression guard the pipeline needed
+
+- **`scripts/validate-playbook.py`** now simulates the copy-folders deploy
+  against the real `Executables/` tree: it fails on the folder-name-preserving
+  copy shape, on unrecognized copy idioms (so the check is updated consciously
+  whenever the block changes), and whenever a `Windows\...` `Test-Path` guard
+  in the block would fail at runtime. It also pins the main.yml pipeline order
+  (start.yml before copy-folders.yml). Verified both ways: the check fails on
+  the v1.1.0 block and passes on the fixed one.
+- **`Undo.cmd` is now CRLF** like every other shipped `.cmd` (it shipped
+  LF-only by accident; CRLF is the line ending `cmd.exe` documents).
+
 ## [1.1.0] — 2026-10-07
 
 Feature release: a new **Tuning extras** wizard page, five new opt-in switches, the input/mouse module the docs always promised, and a full "antivirus flags this?" transparency package (new doc, honest answers, verification-first flow).
