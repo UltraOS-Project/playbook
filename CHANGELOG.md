@@ -2,6 +2,74 @@
 
 All notable changes to UltraOS are documented here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and the project uses [semantic versioning](https://semver.org/) with the caveat that "breaking" for a playbook means "an install made by an older version may need attention before upgrading" — the wizard's own upgrade flow (`Upgrade`, not *Run again*) handles version-to-version migration.
 
+## [1.2.0] — 2026-10-14
+
+Depth-parity release. ReviOS 26.10 (Oct 9) added 26H2 support and doubled
+down on deep component removal via their closed-source Revision Tool. This
+release matches that depth **with UltraOS's own method**: every new tweak is
+a documented, reversible policy write — plain YAML, zero executables, no
+WinSxS amputation. Same endpoints, opposite philosophy.
+
+### Added — deep telemetry neutralization (`privacy/telemetry-deep.yml`)
+
+- **SQM / setup ETW autologgers off** (`SQMLogger`, `SetupPlatformTel`) — the
+  reversible equivalent of ReviOS's WinSxS `SQMApi` package removal: the
+  upload traces never start, but the API bits stay on disk for repair
+  installs. Balanced+.
+- **DataCollection policy depth**: `AllowCommercialDataPipeline=0`,
+  `DisableEnterpriseAuthProxy=1`, `MicrosoftEdgeDataOptIn=0`,
+  `DisableTelemetryOptInChangeNotification=1`,
+  `DisableTelemetryOptInSettingsUx=1` (the OS can no longer re-prompt the
+  "full diagnostics" opt-in), `LimitEnhancedDiagnosticDataWindowsAnalytics=0`.
+  Balanced+.
+- **CPSS + PolicyManager shadow copies** of `AllowTelemetry`/`AllowExperimentation`
+  zeroed (inbox surfaces that read the Consumer Policy Store instead of the
+  Policies hive). Balanced+.
+- **Insider/Preview flights blocked at Extreme** (`AllowBuildPreview=0`) — a
+  stability choice: feature flights reset diagnostic defaults on tuned
+  machines. Safe/Balanced keep the ability to enroll.
+
+### Added — search hardening (`privacy/search-hardening.yml`)
+
+- **SearchWebView2 feature-ID overrides** (`1694661260`, `3369582732`) —
+  Windows Search can no longer spawn an Edge WebView2 for web content;
+  local queries stay local. Balanced+.
+- **Store product results in Search disabled** (`WinStore.Tasks.WindowsSearchTask`
+  activation killed, 25H2+). Balanced+.
+
+### Added — cross-device resume neutralization (`privacy/cross-device.yml`)
+
+- The MeetRevision-discovered **ShellUIHosts `CrossDeviceResumeHost`
+  ProcessPath redirect** (resume host repointed at inert `ShellHost.exe`),
+  plus `IsResumeAllowed=0` and the MDM `DisableCrossDeviceResume` shadow
+  policy. Extreme tier — where UltraOS already removes the Phone Link
+  ecosystem; lower tiers keep phone continuity.
+
+### Added — 26H2 agentic-AI policies (`privacy/ai-features.yml`)
+
+- **`DisableSettingsAgent=1`** — the 26H2 Settings AI agent is off at every
+  preset (policy disable; the agent stays on disk, reversible).
+- **`DisableClickToDo` / `DisableCocreator=1`** under the existing "Strip
+  Recall/AI features" opt-in — AI creation features now leave with the same
+  explicit user choice that strips Recall.
+- These are the policies our own research dossier flagged as "26H2
+  candidates"; 26H2 RTM shipped them, so they ship here.
+
+### Added — Game Bar protocol neutralization (`debloat/appx-removals.yml`)
+
+- After the Xbox overlay apps leave at Extreme, `ms-gamebar://` links could
+  still spawn Game Bar flows. The protocol handler is repointed at inert
+  `systray.exe` + Game Bar's first-run nudge off — no handler class deleted,
+  stock value documented for undo. Extreme.
+
+### Attribution
+
+- CrossDeviceResume redirect, SearchWebView2 feature IDs, Store-in-Search
+  task values and the ms-gamebar protocol set were first published by the
+  ReviOS project / MeetRevision (26.10, CC BY-SA 4.0) — re-implemented here
+  in UltraOS's own YAML with preset gating, tier rationale and undo
+  documentation. See `NOTICE`.
+
 ## [1.1.1] — 2026-10-08
 
 Hotfix release. v1.0.0-v1.1.0 halted on every fresh install at

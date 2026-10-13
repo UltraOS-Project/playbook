@@ -220,6 +220,31 @@ actions:
   - !appx: {name: 'Microsoft.XboxSpeechToTextOverlay*', type: family, option: 'preset-extreme'}
   # src: T1-e §5.6 (Win11Debloat "unsafe" tier) · preset: extreme (game speech overlay)
 
+  # ms-gamebar:// protocol handler neutralization (v1.2.0) - after the Xbox
+  # overlay apps leave, the OS-owned ms-gamebar URL class (HKLM SOFTWARE
+  # Classes, it survives appx removal) can still spawn Game Bar flows from
+  # links/widgets. Repointing the protocol command at the inert systray.exe
+  # makes gamebar:// links do nothing, without deleting the handler class.
+  # Class writes go through HKLM\SOFTWARE\Classes (engine hive whitelist -
+  # same merged HKCR view); key-default values use reg add /ve per the
+  # context-menu.yml precedent (validator rejects empty value names).
+  # Stock for undo: class default 'URL:ms-gamebar', 'URL Protocol' marker,
+  # shell\open\command -> the Game Bar app (values verified against
+  # MeetRevision 26.10 - see NOTICE).
+  # src: T1-e §5.6 (MeetRevision win-sxs.yml registry set) · matrix row 49 · preset: extreme
+  - !registryValue: {path: 'HKLM\SOFTWARE\Classes\ms-gamebar', value: 'URL Protocol', data: '', type: REG_SZ, option: 'preset-extreme'}
+  - !powerShell:
+    command: 'reg add HKLM\SOFTWARE\Classes\ms-gamebar /ve /t REG_SZ /d URL:ms-gamebar /f'
+    wait: true
+    option: 'preset-extreme'
+  - !powerShell:
+    command: 'reg add HKLM\SOFTWARE\Classes\ms-gamebar\shell\open\command /ve /t REG_EXPAND_SZ /d %SystemRoot%\System32\systray.exe /f'
+    wait: true
+    option: 'preset-extreme'
+  # Game Bar first-run nudge + startup panel are already owned by
+  # performance/gaming.yml (ShowStartupPanel=0) and the gamebar.ps1 toggle -
+  # intentionally NOT duplicated here (validator-verified single ownership).
+
   # Individually functional apps that only leave in Extreme
   - !appx: {name: 'Microsoft.MicrosoftSolitaireCollection*', type: family, option: 'preset-extreme'}
   # src: T1-e §5.1 · preset: extreme (Atlas removes Solitaire by default; UltraOS keeps

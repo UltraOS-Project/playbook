@@ -59,11 +59,14 @@ actions:
   - !writeStatus: {status: 'Applying privacy tweaks'}
   - !task: {path: 'tweaks\privacy\telemetry-services.yml'}
   - !task: {path: 'tweaks\privacy\telemetry-policies.yml'}
+  - !task: {path: 'tweaks\privacy\telemetry-deep.yml'}
+  - !task: {path: 'tweaks\privacy\search-hardening.yml'}
   - !task: {path: 'tweaks\privacy\settings-privacy.yml'}
   - !task: {path: 'tweaks\privacy\cloud-content.yml'}
   - !task: {path: 'tweaks\privacy\ai-features.yml'}
   - !task: {path: 'tweaks\privacy\app-telemetry.yml'}
   - !task: {path: 'tweaks\privacy\extras-extreme.yml'}
+  - !task: {path: 'tweaks\privacy\cross-device.yml'}
 
   # MODULE: scheduled tasks
   - !writeStatus: {status: 'Configuring scheduled tasks'}

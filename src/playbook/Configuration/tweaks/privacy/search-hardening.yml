@@ -1,0 +1,46 @@
+---
+title: Search Hardening
+description: >-
+  Closes the Windows Search exfiltration surfaces: WebView2 spawning from
+  SearchHost (feature-ID overrides), and Store product results injected
+  into local search (WinStore background task disabled). Web/Bing results
+  in the Start menu are already suppressed by DisableSearchBoxSuggestions
+  in cloud-content.yml - this file owns the two newer 25H2/26H2 surfaces.
+# Feature-ID overrides verified by the ReviOS community on 25H2/26H2
+# (meetrevision/playbook 26.10, CC BY-SA 4.0 - see NOTICE) and first
+# reported in the WindowsHelp community. IDs are feature-store velocity
+# IDs: 0 = feature off for every user, applied via the live control set.
+actions:
+  - !writeStatus: {status: 'Hardening Windows Search'}
+
+  # ------------------------------------------------------------------
+  # Balanced+ - stop WebView2 spawning from SearchHost.
+  # Windows Search on 25H2+ renders its web content in an embedded
+  # Edge WebView2 (SearchWebView2). Killing the feature IDs means the
+  # search host never spawns the webview process - no msedge background
+  # churn from the Start menu, no web results fetched for local queries.
+  #   1694661260 -> SearchHost WebView2 spawn
+  #   3369582732 -> SearchWebView2_Master (alt ID 43998308 observed on
+  #                 some builds; the large ID is the active one)
+  # Written through CurrentControlSet (live view of ControlSet001) per
+  # UltraOS convention; the values land in the same real key ReviOS
+  # targets. Absence-tolerant: the override subkey is created on write.
+  # ------------------------------------------------------------------
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides', value: '1694661260', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.5 (ReviOS search.yml feature overrides) · matrix row 46 · preset: balanced
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Policies\Microsoft\FeatureManagement\Overrides', value: '3369582732', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.5 (ReviOS search.yml feature overrides) · matrix row 46 · preset: balanced
+
+  # ------------------------------------------------------------------
+  # Balanced+ - no Store product results in Search (25H2+).
+  # The Store registers a background WinRT task (WindowsSearchTask) that
+  # injects app/product suggestions into search results. Setting
+  # ActivationType to disabled (0xFFFFFFFF) with an empty server string
+  # prevents the class from ever activating - the same pattern UltraOS
+  # already uses for the GameBar PresenceWriter (performance/gaming.yml).
+  # Harmless on builds where the task does not exist yet.
+  # ------------------------------------------------------------------
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WinStore.Tasks.WindowsSearchTask', value: 'ActivationType', data: '4294967295', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.5 (ReviOS search.yml Store task) · matrix row 46 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\WindowsRuntime\ActivatableClassId\WinStore.Tasks.WindowsSearchTask', value: 'Server', data: '', type: REG_SZ, option: '!preset-safe'}
+  # src: T1-f §2.5 (ReviOS search.yml Store task) · matrix row 46 · preset: balanced

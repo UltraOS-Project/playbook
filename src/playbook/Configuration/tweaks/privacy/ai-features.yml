@@ -61,8 +61,23 @@ actions:
   - !service: {name: 'WSAIFabricSvc', operation: change, startup: 4, ignoreErrors: true, option: 'opt-strip-recall'}
 
   # ------------------------------------------------------------------
-  # 26H2 candidates - Insider-only at research time, intentionally NOT set.
-  # Revisit at 26H2 RTM (T1-f §6.3, T1-d2 §5.2 - Settings AI agent):
-  #   HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI -> DisableSettingsAgent=1
-  #   HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI -> DisableClickToDo / DisableCocreator
+  # 26H2 RTM agentic-AI policies (v1.2.0 - the former "26H2 candidates"
+  # from T1-f §6.3 / T1-d2 §5.2, now shipping). ReviOS 26.10 reaches the
+  # same area by deleting the FabricAI package from WinSxS via their
+  # closed-source tool; UltraOS keeps the components on disk and disables
+  # them with documented policies - same effect, fully reversible.
   # ------------------------------------------------------------------
+
+  # Settings AI agent (the 26H2 agentic assistant embedded in the Settings
+  # app) - off at every preset. Policy disable only; the agent binary stays
+  # for repair installs and future re-enable.
+  # src: T1-f §6.3 (MS Learn CSP WindowsAI) · matrix row 48 · preset: all
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'DisableSettingsAgent', data: '1', type: REG_DWORD}
+
+  # ClickToDo (AI action suggestions on drag-select) and Cocreator
+  # (Paint AI image generation) - AI creation features, so they follow the
+  # "Strip Recall/AI features" opt-in rather than a preset, matching the
+  # component-stripping philosophy in 01-architecture §4.
+  # src: T1-f §6.3 (MS Learn CSP WindowsAI) · matrix row 48 · option: opt-strip-recall
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'DisableClickToDo', data: '1', type: REG_DWORD, option: 'opt-strip-recall'}
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\WindowsAI', value: 'DisableCocreator', data: '1', type: REG_DWORD, option: 'opt-strip-recall'}

@@ -1,0 +1,80 @@
+---
+title: Deep Telemetry Neutralization
+description: >-
+  Second-pass telemetry kill: SQM/setup ETW autologgers off, commercial-data
+  and opt-in UX policies closed, CPSS and PolicyManager shadow copies of
+  AllowTelemetry zeroed. ReviOS 26.10 reaches the same endpoints by deleting
+  Unified-Telemetry-Client and SQMApi from WinSxS via a closed-source tool;
+  UltraOS neutralizes them with plain registry policy - every action here is
+  a documented, reversible key write instead of component amputation.
+# Values cross-checked against ReviOS 26.10 registry/privacy/telemetry.yml
+# (community-verified on 24H2-26H2) and MS Learn DataCollection policy docs.
+# See NOTICE for attribution. Preset coverage mirrors telemetry-policies.yml.
+actions:
+  - !writeStatus: {status: 'Neutralizing deep telemetry'}
+
+  # ------------------------------------------------------------------
+  # Balanced+ - SQM / setup ETW autologger sessions off.
+  # Diagtrack-Listener is already handled in telemetry-services.yml; these
+  # are the remaining always-on trace sessions:
+  #   SQMLogger          -> SQMApi (Software Quality Metrics) upload trace
+  #   SetupPlatformTel   -> setup/OS-rollout telemetry trace
+  # Neutralizing the sessions is the reversible equivalent of ReviOS's
+  # WinSxS SQMApi package removal - the API bits stay for repair installs,
+  # but nothing logs into them. Session keys tolerate absence (non-data
+  # builds omit SQMLogger entirely).
+  # ------------------------------------------------------------------
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\WMI\Autologger\SQMLogger', value: 'Start', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (ReviOS telemetry.yml autologger set) · matrix row 43 · preset: balanced
+  - !registryValue: {path: 'HKLM\SYSTEM\CurrentControlSet\Control\WMI\Autologger\SetupPlatformTel', value: 'Start', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (ReviOS telemetry.yml autologger set) · matrix row 43 · preset: balanced
+
+  # ------------------------------------------------------------------
+  # Balanced+ - DataCollection policy depth (values not already owned by
+  # telemetry-policies.yml). All are MS-documented ADMX policies:
+  # ------------------------------------------------------------------
+
+  # Commercial data pipeline (Enterprise device metadata flow) - off
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'AllowCommercialDataPipeline', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn DataCollection ADMX) · matrix row 44 · preset: balanced
+
+  # Connected User Experience proxy usage for DiagTrack - off
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'DisableEnterpriseAuthProxy', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn DataCollection ADMX) · matrix row 44 · preset: balanced
+
+  # Desktop Analytics browsing-data opt-in - off
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'MicrosoftEdgeDataOptIn', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn DataCollection ADMX) · matrix row 44 · preset: balanced
+
+  # Telemetry opt-in change notification + Settings UX - suppressed so the
+  # OS cannot re-prompt or re-surface the "full diagnostics" opt-in screens
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'DisableTelemetryOptInChangeNotification', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn DataCollection ADMX) · matrix row 44 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'DisableTelemetryOptInSettingsUx', data: '1', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn DataCollection ADMX) · matrix row 44 · preset: balanced
+
+  # Windows Analytics enhanced-data bridge - off (defense in depth even
+  # though AllowTelemetry is already 0 at this tier)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'LimitEnhancedDiagnosticDataWindowsAnalytics', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn DataCollection ADMX) · matrix row 44 · preset: balanced
+
+  # CPSS shadow copies of AllowTelemetry (Consumer Policy Store) - some
+  # inbox surfaces read these instead of the Policies hive
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CPSS\DevicePolicy\AllowTelemetry', value: 'DefaultValue', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (ReviOS telemetry.yml CPSS set) · matrix row 44 · preset: balanced
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\CPSS\Store\AllowTelemetry', value: 'Value', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (ReviOS telemetry.yml CPSS set) · matrix row 44 · preset: balanced
+
+  # PolicyManager live-device copy of AllowExperimentation (the default
+  # hive copy is already zeroed by telemetry-policies.yml)
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\PolicyManager\current\device\System', value: 'AllowExperimentation', data: '0', type: REG_DWORD, option: '!preset-safe'}
+  # src: T1-f §2.4 (MS Learn PolicyManager) · matrix row 44 · preset: balanced
+
+  # ------------------------------------------------------------------
+  # Extreme only - Insider/Preview builds blocked. This is a stability
+  # choice, not a privacy one: it keeps feature flights (and their reset of
+  # diagnostic defaults) off a tuned machine. Safe/Balanced users keep the
+  # ability to enroll.
+  # ------------------------------------------------------------------
+  - !registryValue: {path: 'HKLM\SOFTWARE\Policies\Microsoft\Windows\DataCollection', value: 'AllowBuildPreview', data: '0', type: REG_DWORD, option: 'preset-extreme'}
+  # src: T1-f §2.4 (MS Learn PreviewBuilds ADMX) · matrix row 45 · preset: extreme

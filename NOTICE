@@ -29,6 +29,15 @@ credited in-line in the source files where they appear:
 
 - ReviOS / MeetRevision playbook (https://github.com/MeetRevision/playbook,
   CC BY-SA 4.0) - engine-native browser flow, option UX, honest warning copy.
+  UltraOS v1.2.0 additionally builds on registry values first published by
+  the ReviOS project and its community for ReviOS 26.10: the CrossDeviceResume
+  ShellUIHosts ProcessPath redirect, the SearchWebView2 feature-ID overrides
+  (1694661260 / 3369582732), the WinStore WindowsSearchTask activation kill,
+  the ms-gamebar protocol repointing, and the SQMLogger/SetupPlatformTel
+  autologger set. These facts are re-implemented in UltraOS's own YAML with
+  preset gating, tier rationale and undo documentation; no ReviOS code,
+  tooling or package files are used (their WinSxS removals ship through the
+  closed-source Revision Tool, which UltraOS deliberately does not bundle).
 - Win11Debloat by Raphael Finch (https://github.com/Raphire/Win11Debloat,
   MIT) - the Sticky Keys shortcut-disable value (Flags=506) and several
   QoL registry patterns studied while designing UltraOS's equivalents.

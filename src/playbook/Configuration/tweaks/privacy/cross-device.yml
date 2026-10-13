@@ -1,0 +1,37 @@
+---
+title: Cross-Device Resume Neutralization
+description: >-
+  Prevents CrossDeviceResume (the phone-continuity "resume from where you
+  left off" host that survives Phone Link appx removal on 25H2+) from
+  running at all. Runs at the Extreme tier, which is where UltraOS already
+  removes the Phone Link ecosystem - lower tiers keep phone continuity.
+# The ShellUIHosts ProcessPath redirect method was discovered and verified
+# by MeetRevision (meetrevision/playbook 26.10, CC BY-SA 4.0 - see NOTICE);
+# ReviOS ships it gated on their remove-appx-yourphone option. UltraOS
+# gates it on preset-extreme to stay consistent with T1-e §8.7 (Cross
+# Device Experience Host removal tier).
+actions:
+  - !writeStatus: {status: 'Neutralizing cross-device resume', option: 'preset-extreme'}
+
+  # ------------------------------------------------------------------
+  # Extreme - reliable kill: repoint the resume host at ShellHost.
+  # CrossDeviceResume normally launches CrossDeviceResume.exe (a shell
+  # UI host registered under ShellUIHosts). Setting its ProcessPath to
+  # the inert ShellHost.exe makes the OS spin up a no-op host instead of
+  # the resume UX - no process kill, no file deletion, fully reversible
+  # (stock value: %SystemRoot%\System32\CrossDeviceResume.exe on builds
+  # that ship it; the key may not exist on 24H2 - tolerate absence).
+  # ------------------------------------------------------------------
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\Windows\CurrentVersion\Shell\ShellUIHosts\CrossDeviceResumeHost', value: 'ProcessPath', data: '%SystemRoot%\system32\ShellHost.exe', type: REG_SZ, option: 'preset-extreme'}
+  # src: T1-f §2.6 (MeetRevision CrossDeviceResume method) · matrix row 47 · preset: extreme
+
+  # ------------------------------------------------------------------
+  # Extreme - belt and braces: per-user resume consent off + MDM policy
+  # shadow copy. These alone only stop the Settings toggle from enabling
+  # the feature (the ProcessPath redirect above is the reliable kill) -
+  # they close re-enable paths after feature updates instead.
+  # ------------------------------------------------------------------
+  - !registryValue: {path: 'HKCU\Software\Microsoft\Windows\CurrentVersion\CrossDeviceResume\Configuration', value: 'IsResumeAllowed', data: '0', type: REG_DWORD, option: 'preset-extreme'}
+  # src: T1-f §2.6 (MeetRevision CrossDeviceResume method) · matrix row 47 · preset: extreme
+  - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\PolicyManager\default\Connectivity\DisableCrossDeviceResume', value: 'value', data: '1', type: REG_DWORD, option: 'preset-extreme'}
+  # src: T1-f §2.6 (MeetRevision CrossDeviceResume method) · matrix row 47 · preset: extreme
