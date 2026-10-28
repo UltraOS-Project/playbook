@@ -14,18 +14,14 @@ state the Balanced preset installs).
 ----------------------------------------------------------------
  1. SECURITY
 ----------------------------------------------------------------
-Defender (Enable) (default).cmd / Defender (Disable).cmd
-    Turns Microsoft Defender back on or off at the policy level.
-    - Enable clears the DisableAntiSpyware policies so real-time
-      protection re-arms (reboot recommended, then turn Tamper
-      Protection back on).
-    - Disable applies the 2026-proof double-write policy set the
-      playbook uses (policy hive + core Defender key + gpupdate
-      re-apply).
-    WARNING: running Windows without antivirus is risky. Keep
-    Defender enabled unless you have a replacement.
-    NOTE: if Tamper Protection is on, Windows Security may
-    revert the disable policies - turn it off first.
+Defender (Enable) (default).cmd
+    Recovery command for known Defender policy overrides left by
+    older UltraOS releases. It attempts to clear those overrides and
+    restore the normal service start type. It does not disable
+    Defender or bypass Tamper Protection / organization policy.
+    Verify real-time protection and Tamper Protection in Windows
+    Security after running it; if Windows blocks the change, contact
+    your device administrator or antivirus provider.
 
 Mitigations (Enable) (default).cmd / Mitigations (Disable).cmd
     CPU security mitigations (Spectre/Meltdown family, CFG,

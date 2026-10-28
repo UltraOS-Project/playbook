@@ -2,11 +2,9 @@
 
 The questions we expect most often, answered honestly — including the ones where the honest answer is "no, that tweak is a placebo" or "Microsoft doesn't allow that." If your question isn't here, try [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) or the [module reference](MODULES.md).
 
-## Is UltraOS a virus? My antivirus flags it (or AME Wizard)
+## My antivirus flags UltraOS or AME Wizard. Is it malicious?
 
-No — and the flag has a boring, well-understood explanation. Antivirus engines score *behavior patterns*, not intent, and system-tuning playbooks look statistically like malware to a heuristic: an unsigned community tool running with admin/TrustedInstaller rights, a password-protected playbook container (the AME Wizard `.apbx` format, which scanners cannot look inside), and a burst of registry/service/policy writes. Every playbook in the ecosystem — AtlasOS, ReviOS, us — trips the same heuristics.
-
-What the heuristics cannot see is the content, and the content is fully public: UltraOS ships **zero executables** — it is plain-text YAML and PowerShell on GitHub — with no encoded commands, no downloaders, no network calls, and no obfuscation, and Defender is re-enabled at the end of every default install. The strongest answer to any flag is cryptographic, not rhetorical: **verify the SHA-256 of your download against the `SHA256SUMS.txt` in the release** — if it matches, you have the exact bytes the maintainers published. The full story, the safe path through a warning, and how to file a false-positive report with Microsoft (or your AV vendor) so the flag dies for everyone: [ANTIVIRUS.md](ANTIVIRUS.md).
+An alert alone does not establish whether a file is malicious or a false positive. UltraOS changes system settings through AME Wizard, so security software may flag behaviors or the package; that possibility is not proof of safety. Keep protection enabled, do not add an exclusion or click through the alert, and inspect the exact product name, detection label, and file path. Verify the release hash to confirm the file matches the publisher's release, but remember a matching hash proves authenticity, not that the file is safe. Follow [ANTIVIRUS.md](ANTIVIRUS.md) to submit a suspected false positive to the relevant vendor.
 
 ## Placebos and harmful tweaks we reject
 
@@ -20,11 +18,9 @@ The Windows-optimization scene recycles a set of tweaks that either do nothing o
 
 **What we did instead:** every applied tweak carries a provenance comment citing its source (research dossier section and/or Microsoft documentation), and the never-touch list of services and components is enforced by the build validator. See [docs/MODULES.md](MODULES.md) for the full matrix.
 
-## Why do I have to turn off Defender to install?
+## Does UltraOS disable Microsoft Defender?
 
-Because the install writes several hundred registry values, service configurations, and policy keys in a few minutes, and an active real-time scanner can intercept, delay, or lock those writes — making the install unreliable and the outcome unpredictable. Worse, Tamper Protection blocks writes to Defender's own policy keys *by design*, even for administrators, and the playbook needs those writes even to hand Defender back to you in a clean state at the end.
-
-That is also why the requirement is a **manual toggle you perform in Windows Security** (Virus & threat protection → Manage settings), not something we do for you: Tamper Protection exists precisely so that no software — including ours — can silently disable your antivirus. The wizard verifies the toggles are off before it starts (`DefenderToggled` in the playbook metadata). **Defender is switched back on automatically at the very end of the install** unless you explicitly check *Keep Defender disabled*; and a permanent on/off toggle pair lives in `C:\Windows\UltraOS\1. Security\` afterwards. We never attempt to defeat Tamper Protection programmatically.
+No. Keep Defender and other antivirus protection enabled during and after installation. UltraOS no longer requires users to toggle protection off, and it does not include an option to disable Defender. If a security product blocks an action, stop and investigate the detection rather than disabling protection or adding an exclusion. The UltraOS folder contains an enable-only recovery command for Defender settings left behind by an older release; it cannot bypass Tamper Protection or organization policy.
 
 ## Do the tweaks survive Windows Updates?
 

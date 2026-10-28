@@ -39,8 +39,6 @@ FILES = [
     ("tweaks\\qol\\system-info.yml", "System Information", "Sets UltraOS OEM support information shown in Settings > About.", None, "T3-g", "atlas-playbook-analysis.md"),
     ("tweaks\\qol\\shortcuts.yml", "Shortcuts", "Creates UltraOS folder and report shortcuts.", None, "T3-g", "atlas-playbook-analysis.md"),
     ("tweaks\\qol\\updates.yml", "Windows Update Policy", "Notify-only update policy when the user opted in - never disables updates.", None, "T3-g", "known-issues-compatibility.md"),
-    ("tweaks\\security\\defender-reenable.yml", "Re-enable Defender", "Restores Defender protections at the end of installation unless the user opted to keep it disabled.", "!opt-disable-defender", "T3-h", "known-issues-compatibility.md"),
-    ("tweaks\\security\\defender-disable.yml", "Keep Defender Disabled", "Keeps Defender disabled with 2026-proof double-written policies when the user opted in.", "opt-disable-defender", "T3-h", "known-issues-compatibility.md"),
     ("tweaks\\security\\mitigations.yml", "Disable CPU Mitigations", "Disables CPU security mitigations when the user opted in - older CPUs only.", "opt-disable-mitigations", "T3-h", "services-performance-research.md"),
     ("tweaks\\security\\vbs.yml", "Disable Core Isolation", "Disables VBS/HVCI when the user opted in - not recommended.", "opt-disable-vbs", "T3-h", "services-performance-research.md"),
     ("tweaks\\ultraos\\copy-folders.yml", "Copy UltraOS Folder", "Copies the UltraOS post-install folder and tooling to Windows\\UltraOS.", None, "T3-j", "atlas-playbook-analysis.md"),

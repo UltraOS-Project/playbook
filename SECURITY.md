@@ -2,11 +2,9 @@
 
 UltraOS modifies core Windows state, so security is a design constraint, not an afterthought. This page documents what UltraOS deliberately never touches, how the playbook is built to stay trustworthy, and how to report problems. It complements [docs/FAQ.md](docs/FAQ.md) (the reasoning) and [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) (the failure modes).
 
-## What UltraOS never disables by default
+## Security controls UltraOS leaves alone
 
-Every install runs with these **on**, under every preset, unless you personally opt out via an explicitly warned checkbox:
-
-- **Microsoft Defender / real-time protection.** The install requires Defender to be toggled off by hand (the wizard's `DefenderToggled` check — the one step Tamper Protection guarantees only a human can do), and **re-enables it automatically at the end of the install**. Keeping it off requires the clearly-marked `opt-disable-defender` opt-in, and a permanent on/off toggle ships in the post-install folder either way.
+- **Microsoft Defender / real-time protection.** UltraOS does not require users to disable it, does not modify it during installation, and has no option to turn it off. A user-invoked, enable-only recovery command is shipped for known settings left by older releases; it does not bypass Tamper Protection or organization policy.
 - **Core Isolation / VBS / HVCI (Memory Integrity).** On by default from Windows, left on by UltraOS. Disabling it (which breaks Vanguard/FACEIT anti-cheat, WSL2, Docker Desktop, and Hyper-V) is only possible via the warned `opt-disable-vbs` checkbox.
 - **CPU exploit mitigations** (Spectre/Meltdown family, CFG, SEHOP). Left at Windows defaults; the `opt-disable-mitigations` extra is aimed at older CPUs, carries a wizard warning, and includes the Valorant CFG exception pattern for anti-cheat compatibility.
 - **Windows Update.** Automatic (default) or notify-only — there is no "off", by design and forever. The update services themselves (`wuauserv`, `UsoSvc`, `TrustedInstaller`, `DoSvc`, BITS) sit on the never-touch list enforced by our validator.
@@ -14,11 +12,11 @@ Every install runs with these **on**, under every preset, unless you personally 
 - **UAC, SmartScreen behavior, and the never-touch service set** — the update/servicing services, print spooler, audio, WMI, Task Scheduler, user-profile and app-state services, SecurityHealthService/MDCoreSvc, and the core networking services (the current list is embedded in `scripts/validate-playbook.py`). By design, the Xbox/Game Pass service stack is never touched either — Extreme removes the Xbox *apps*, not the services Game Pass needs.
 - **UserChoice / file-association keys (UCPD territory).** UltraOS never writes them, never disables the UCPD driver, and never hijacks your default browser — the wizard's browser flow uses the sanctioned Windows confirmation prompt instead.
 
-We also never: bundle or auto-run unsigned binaries, spray `RunOnce` persistence, block Windows Update endpoints, or modify anything behind your back after the install completes.
+We also never: bundle or auto-run unsigned binaries, spray `RunOnce` persistence, block Windows Update endpoints, disable antivirus protection, or modify anything behind your back after the install completes.
 
 ## Supply-chain and build integrity
 
-- The playbook ships as an `.apbx` (a password-protected ZIP — the AME ecosystem's standard container, so scanners can flag it; verify against the published **`SHA256SUMS.txt`** before running, as described in the release's README-FIRST.txt).
+- The playbook ships as an `.apbx`. Verify the downloaded bytes against the published **`SHA256SUMS.txt`**, but do not treat a matching hash as proof that an antivirus alert is harmless.
 - The whole build is deterministic and script-driven on Linux from this public repository: `scripts/validate-playbook.py --strict` (structure, gates, never-touch enforcement), then `scripts/build-playbook.sh` (packaging + hash manifest). CI runs the same steps on every push and PR, so the `.apbx` you download is reproducible from the commit you can read.
 - UltraOS uses no kernel driver (`UseKernelDriver: false`), no third-party binaries in the install path, and no run-time downloads of executable code except the browser you explicitly select on the wizard's browser page (installed by the AME Wizard engine itself from the vendor's channels).
 

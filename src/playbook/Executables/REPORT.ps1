@@ -216,7 +216,7 @@ if ($hasTaskBaseline -and $nowTasks.Count -gt 0) {
 # Only notes whose condition is verified live - never speculative claims.
 $notes = New-Object System.Collections.Generic.List[string]
 if ($nowServices.ContainsKey('WinDefend') -and [int]$nowServices['WinDefend'] -eq 4) {
-    $notes.Add('Microsoft Defender antimalware (WinDefend) is currently DISABLED. This is only expected if you selected "Keep Defender disabled". You can re-enable it at any time from the Security page of the UltraOS folder or via Windows Security.')
+    $notes.Add('Microsoft Defender antimalware (WinDefend) is currently DISABLED. UltraOS does not disable Defender. Re-enable protection in Windows Security and check for policy or third-party antivirus settings if Windows will not allow it.')
 }
 $au = (Get-ItemProperty 'HKLM:\SOFTWARE\Policies\Microsoft\Windows\WindowsUpdate\AU' -ErrorAction SilentlyContinue).AUOptions
 if ([int]$au -eq 2) {

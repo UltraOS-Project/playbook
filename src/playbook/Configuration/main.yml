@@ -98,14 +98,12 @@ actions:
   - !task: {path: 'tweaks\qol\shortcuts.yml'}
   - !task: {path: 'tweaks\qol\updates.yml'}
 
-  # MODULE: security (opt-in extras; Defender re-enable/disable runs last among modules)
+  # MODULE: security (opt-in extras)
   - !writeStatus: {status: 'Configuring security options'}
   - !task: {path: 'tweaks\security\mitigations.yml'}
   - !task: {path: 'tweaks\security\vbs.yml'}
-  - !task: {path: 'tweaks\security\defender-disable.yml'}
-  - !task: {path: 'tweaks\security\defender-reenable.yml'}
 
-  # Apply mirrored HKCU tweaks to the default user hive (single batched pass)
+  # Apply mirrored HKCU tweaks to the default user hive (best-effort per section)
   - !writeStatus: {status: 'Applying default user hive'}
   - !powerShell:
     command: '.\APPLYHIVE.ps1'

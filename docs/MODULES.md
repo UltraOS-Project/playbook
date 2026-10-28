@@ -51,7 +51,7 @@ The never-touch list — the update/servicing services (`wuauserv`, `UsoSvc`, `T
 | Recall off (policy) + Copilot button off | ✅ | ✅ | ✅ | Disables the feature; hardware is untouched |
 | Telemetry services: DiagTrack (stop → disable + autologger off), WER/diagnostics-hub services | stop only | ✅ | ✅ | Full disable of the Connected User Experiences & Telemetry pipeline from Balanced up. Apps that rely on telemetry channels for licensing/updates are unaffected |
 | Telemetry policies: `AllowTelemetry=0` (all paths), CEIP, feedback prompts, WER upload, cloud-content/Spotlight, settings sync, OneSettings | ➖ | ✅ | ✅ | On Home/Pro, `AllowTelemetry=0` is floored to "Required" by Microsoft — see the [FAQ](FAQ.md) for the honest version |
-| App telemetry: NVIDIA, Office, PowerShell/.NET CLI opt-outs; Defender sample submission off | ➖ | ✅ | ✅ | Sample submission off means unknown files are not auto-uploaded (defense trade-off, noted in the report) |
+| App telemetry: NVIDIA, Office, PowerShell/.NET CLI opt-outs | ➖ | ✅ | ✅ | Vendor-specific telemetry controls only; Microsoft Defender settings are not changed |
 | AI feature strip: Copilot app + CoreAI platform package removal, Recall enablement blocked (`AllowRecallEnablement=0`) | ➖ | ➖ | ✅ or `opt-strip-recall` | Extreme-tier privacy deep-clean; app removals are reinstallable from the Store |
 | Extreme extras (MSA connection limits, presence-sensing force-deny, dmwappushservice) | ➖ | ➖ | ✅ | Highest trade-off rows from our research; each is individually commented in the YAML |
 
@@ -82,16 +82,15 @@ The never-touch list — the update/servicing services (`wuauserv`, `UsoSvc`, `T
 | Extreme visuals: transparency off, animations minimized, dynamic lighting off, Settings banners (build-gated) | ➖ | ➖ | ✅ | Frees a little GPU/CPU on weak hardware; makes Windows look flatter |
 | Update mode policy (notify-only) | `wu-notify` (any preset) | | | Policy-based notify-only; never a full disable. Switchable later in the folder |
 
-### Security (`tweaks/security/defender-*.yml`, `mitigations.yml`, `vbs.yml`)
+### Security (`tweaks/security/mitigations.yml`, `vbs.yml`)
 
 | Action group | Gate | Trade-off notes |
 |---|---|---|
-| **Defender re-enable** (undo the install-time toggled-off state, restore service defaults, clean policies) | default (`!opt-disable-defender`) — runs **last** among modules | The whole reason the install is safe: unless you opt out, Defender comes back on |
-| Defender keep-off (double-write `DisableAntiSpyware` policy pattern, 2026-gpupdate-proof) | `opt-disable-defender` | The double-write works around a January 2026 security-update behavior where `gpupdate` strips single policy writes. Folder toggle ships regardless |
+| Microsoft Defender | Never modified | Keep real-time protection enabled. The post-install folder includes an enable-only recovery command for known settings left by older releases. |
 | CPU mitigations off (Spectre/Meltdown family overrides, CFG, SEHOP) | `opt-disable-mitigations` | Includes the Valorant CFG re-enable exception pattern (see the [FAQ](FAQ.md)). Older CPUs only |
 | Core Isolation/VBS off (HVCI, incl. the 24H2+ forced-value pattern) | `opt-disable-vbs` | Breaks Vanguard/FACEIT, WSL2, Docker, Hyper-V. Never preset-gated |
 
-**By default — under every preset — Defender stays enabled, VBS/HVCI stays on, CPU mitigations stay on, and Windows Update stays enabled.** The security-reducing changes are exclusively opt-in checkboxes with wizard-visible warnings.
+**Under every preset, UltraOS does not modify Microsoft Defender; VBS/HVCI and CPU mitigations stay on unless you select their opt-in extras, and Windows Update stays enabled.**
 
 ## Skipping a module
 
@@ -110,6 +109,6 @@ Module inclusion is controlled in **one place**: the pipeline file `src/playbook
   - !task: {path: 'tweaks\debloat\edge-removal.yml'}
 ```
 
-To skip a module entirely, comment out (or delete) that module's `!task:` line(s) in `main.yml`, then rebuild the playbook (see [CONTRIBUTING.md](../CONTRIBUTING.md)). For example, to run UltraOS without any debloat, comment out the three `tweaks\debloat\...` lines. Two rules to keep in mind when doing this: keep the pipeline's overall order intact, because later modules assume earlier ones ran (backups happen before any module, and Defender handling must stay last); and run `scripts/validate-playbook.py` after editing, since it catches broken include paths and option mismatches before you ever see them at install time. You can skip individual files within a module the same way — e.g. drop `tweaks\visual\context-menu.yml` alone if the classic context menu isn't for you.
+To skip a module entirely, comment out (or delete) that module's `!task:` line(s) in `main.yml`, then rebuild the playbook (see [CONTRIBUTING.md](../CONTRIBUTING.md)). For example, to run UltraOS without any debloat, comment out the three `tweaks\debloat\...` lines. Keep the pipeline's overall order intact; backups happen before any module. Run `scripts/validate-playbook.py` after editing to catch broken include paths and option mismatches before install. You can skip individual files within a module the same way — e.g. drop `tweaks\visual\context-menu.yml` alone if the classic context menu isn't for you.
 
 *Related: [docs/FAQ.md](FAQ.md) explains the reasoning (and the rejected placebos) behind these matrices.*

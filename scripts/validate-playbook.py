@@ -9,9 +9,8 @@ Validates the playbook source tree:
   - builds: expressions, registry types, service startups, task paths,
     exeDir script existence, protected appx families, never-touch services,
     duplicate registry writes and service conflicts (conflicts between mutually
-    exclusive option gates - e.g. opt-disable-defender vs !opt-disable-defender -
-    are recognized as intentional; so are same-file duplicate policy writes in
-    files documenting the T1-h2 'double-write' technique)
+    exclusive option gates are recognized as intentional; so are same-file
+    duplicate policy writes in files documenting a deliberate double-write)
   - packaging preflight: playbook.png + Images/<icon>.png for every
     <Software><Package> icon referenced by playbook.conf (warns; run
     scripts/make-artifacts.py first)
@@ -114,8 +113,7 @@ def parse_option_expr(expr):
 def mutually_exclusive(e1, e2):
     """True when the two AND-only option expressions can never hold at once
     (a token required True by one and False by the other). Used to keep the
-    service-conflict advisory quiet for intentionally opposite gates, e.g.
-    defender-disable (opt-disable-defender) vs defender-reenable (!opt-disable-defender)."""
+    service-conflict advisory quiet for intentionally opposite option gates."""
     t1, t2 = parse_option_expr(e1), parse_option_expr(e2)
     if t1 is None or t2 is None:
         return False

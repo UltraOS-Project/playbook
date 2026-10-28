@@ -10,7 +10,7 @@ UltraOS targets **Windows 11 26H2 (build 26300, the "Windows 11 2026 Update", GA
 
 ## Why UltraOS exists: the 26H2 gap
 
-Windows 11 26H2 shipped on September 29, 2026, and the two best-known playbooks in the ecosystem were not ready for it in a way that matched what we wanted to run on our own machines. That gap is the reason this project exists, and it is also the reason for its license: we believe a community tweak collection that asks you to disable your antivirus for ten minutes should be fully open, freely forkable, and honestly attributed.
+Windows 11 26H2 shipped on September 29, 2026, and the two best-known playbooks in the ecosystem were not ready for it in a way that matched what we wanted to run on our own machines. That gap is the reason this project exists, and it is also the reason for its license: a community tweak collection that modifies system settings should be fully open, freely forkable, and honestly attributed.
 
 | Project | Windows 11 26H2 (26300) | License | Notes |
 |---|---|---|---|
@@ -39,20 +39,18 @@ The full module-by-module matrix, including exact file names and trade-off notes
 ## Quick start
 
 1. **Download AME Wizard** from the official Ameliorated site: <https://ameliorated.io> (the same wizard AtlasOS and ReviOS use).
-2. **Temporarily toggle off Microsoft Defender** — Windows Security → *Virus & threat protection* → *Manage settings* → turn the protection toggles off. This is a hard requirement of the wizard (see [Requirements](#requirements) for why, and for the exact steps).
-3. **If Windows or your antivirus flags the download, that is a known false-positive pattern for the whole playbook ecosystem** — unsigned community tool + password-protected playbook container + system-modification heuristics. Do not guess: verify the SHA-256 against `SHA256SUMS.txt` from the release, then see [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) for the full explanation and the safe path.
-4. **Open the UltraOS `.apbx` file with AME Wizard** (drag it in or use *Playbook* → *Select...*), pick your preset (Balanced is recommended), and press *Start*. Ten minutes later, read your install report at `C:\Windows\UltraOS\install-report.html`.
+2. **Keep Microsoft Defender and any other antivirus enabled.** UltraOS does not ask you to disable protection. If security software flags the download or playbook, stop and follow [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) before proceeding.
+3. **Open the UltraOS `.apbx` file with AME Wizard** (drag it in or use *Playbook* → *Select...*), pick your preset (Balanced is recommended), and press *Start*. After installation, read your report at `C:\Windows\UltraOS\install-report.html`.
 
-The full walkthrough — including the wizard's five pages, the Defender pre-step in detail, and what to do after install — is in [docs/INSTALL.md](docs/INSTALL.md).
+The full walkthrough — including the wizard pages and what to do after install — is in [docs/INSTALL.md](docs/INSTALL.md).
 
 ## Opt-in extras
 
-On top of your preset, the wizard offers twelve optional checkboxes across three screens. None of them are required, all of them are individually reversible afterwards, and the risky ones carry warnings directly in the wizard UI. They are deliberately **never** preset-gated: an explicit user choice overrides depth tiers.
+On top of your preset, the wizard offers eleven optional checkboxes across three screens. None of them are required, all of them are individually reversible afterwards, and the risky ones carry warnings directly in the wizard UI. They are deliberately **never** preset-gated: an explicit user choice overrides depth tiers.
 
 | Option | What it does | Warning |
 |---|---|---|
 | `opt-uninstall-edge` | Removes Microsoft Edge (browser only — WebView2 runtime stays, since 15+ apps depend on it) | Windows Update and some Microsoft surfaces prefer Edge; see the [troubleshooting guide](docs/TROUBLESHOOTING.md) before choosing this |
-| `opt-disable-defender` | Keeps Defender off after install instead of re-enabling it | **Not recommended.** UltraOS re-enables Defender automatically unless you check this |
 | `opt-disable-mitigations` | Disables CPU exploit mitigations (Spectre/Meltdown family, CFG, SEHOP) | Older CPUs only; near-zero gain on modern CPUs; can trigger anti-cheat issues (see [FAQ](docs/FAQ.md)) |
 | `opt-disable-vbs` | Disables Core Isolation / Virtualization-Based Security (HVCI) | **Not recommended.** Breaks Vanguard/FACEIT anti-cheat, WSL2, Docker Desktop, Hyper-V |
 | `opt-max-performance` | Activates a Maximum Performance power scheme (no power saving, EPP set to performance) | Laptops: expect reduced battery life and more heat |
@@ -74,7 +72,7 @@ Reversibility is a first-class feature, not an afterthought, and it works in lay
 - **Pre-change backups** — UltraOS always exports your full services configuration (`services-before.reg`), installed-app list (`appx-before.txt`), and scheduled-task states (`tasks-before.csv`) to `C:\Windows\UltraOS\Backups\`, regardless of whether you take the restore point.
 - **The install report** — after every run, `C:\Windows\UltraOS\install-report.html` (plus a plain-text `.txt`) lists every change, grouped per module, with a summary of what was skipped and why. There is also a shortcut to it in the UltraOS folder.
 - **One-click undo** — `C:\Windows\UltraOS\Undo.cmd` (or "Uninstall UltraOS" in the UltraOS folder) restores services, scheduled tasks, and registry state from the built-in revert data. Removals of app packages are re-installable via pointers the report gives you; UltraOS is honest about which operations are not perfectly reversible.
-- **Per-toggle reversal** — every toggle in the post-install `C:\Windows\UltraOS\` folder ships as an on/off *pair* of commands, so you can flip back Defender, updates mode, GameDVR, or Recall without re-running anything.
+- **Per-toggle reversal** — toggles in the post-install `C:\Windows\UltraOS\` folder let you change updates mode, GameDVR, or Recall without re-running anything. Defender has an enable-only recovery command; UltraOS does not disable it.
 
 ## What we don't do (no placebos)
 
@@ -93,19 +91,17 @@ Our research dossiers (in [`research/`](research/)) cite sources for every tweak
 
 - **Windows 11 26300 (26H2), 26200 (25H2), or 26100 (24H2)** — Home or Pro. The wizard hard-checks the build number and refuses anything else.
 - **AME Wizard** (free, from <https://ameliorated.io>).
-- **Microsoft Defender toggled off during install** (`DefenderToggled`), **no third-party antivirus** (`NoAntivirus`), **an internet connection** (`Internet`), **no pending Windows Updates** (`NoPendingUpdates`), and **mains power** (`PluggedIn`). The wizard enforces all five before it starts.
-
-The Defender requirement deserves an explanation, because "please turn off your antivirus" should always be questioned. The playbook needs to make a large number of registry and service writes in a short window; with real-time protection active, Defender can intercept, delay, or lock those writes (and Tamper Protection blocks the Defender-related policy writes outright), which makes installs unreliable and unpredictable. The wizard therefore requires you to toggle off the four primary protections yourself — Windows Security → *Virus & threat protection* → *Manage settings* — before it will proceed. **Defender is turned back on automatically at the end of the install** (it is the very last module that runs), unless you explicitly opt out with `opt-disable-defender`. We never disable Tamper Protection programmatically; that is what it is for.
+- **An internet connection** (`Internet`), **no pending Windows Updates** (`NoPendingUpdates`), and **mains power** (`PluggedIn`). The wizard enforces these before it starts. Keep Defender and other antivirus protection enabled; UltraOS does not modify antivirus settings.
 
 ## Documentation
 
 | Doc | Contents |
 |---|---|
-| [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) | Why SmartScreen/antivirus may flag UltraOS or AME Wizard, what we ship (and never ship), SHA-256 verification, safe path through warnings, false-positive reporting |
-| [docs/INSTALL.md](docs/INSTALL.md) | Step-by-step install: prerequisites, the Defender pre-step, the five wizard pages, post-install tour, reading the report, undo |
+| [docs/ANTIVIRUS.md](docs/ANTIVIRUS.md) | How to handle security warnings safely, verify release authenticity, and report a suspected false positive |
+| [docs/INSTALL.md](docs/INSTALL.md) | Step-by-step install: prerequisites, the wizard pages, post-install tour, reading the report, undo |
 | [docs/MODULES.md](docs/MODULES.md) | Every module × every preset: what runs where, trade-offs, how to skip a module |
 | [docs/FAQ.md](docs/FAQ.md) | Placebos we reject, Defender, Windows Updates survival, anti-cheat safety, Home vs Pro, 26H2 notes |
-| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Unsupported builds, UCPD, Edge/update loops, Defender re-enable, restore points, missing reports |
+| [docs/TROUBLESHOOTING.md](docs/TROUBLESHOOTING.md) | Unsupported builds, UCPD, Edge/update loops, Defender recovery, restore points, missing reports |
 | [docs/COMPARISON.md](docs/COMPARISON.md) | UltraOS vs AtlasOS vs ReviOS, feature by feature, with credits |
 
 ## Attribution & license

@@ -1,12 +1,7 @@
 @echo off
 :: UltraOS post-install toggle - re-enable Microsoft Defender (recommended)
 :: Self-elevating wrapper pattern derived from Atlas-OS/Atlas 'AtlasDesktop' (GPL-3.0)
-:: https://github.com/Atlas-OS/Atlas - adapted for UltraOS, state markers under
-:: HKLM\SOFTWARE\UltraOS\SetupOptions instead of AtlasOS\Services.
-:: Provenance: research/atlas-playbook-analysis.md (T1-a section 6.2) + T1-h2 section 5/9.3 (double-write + re-enable mechanism)
-set "settingName=Defender"
-set "stateValue=1"
-set "scriptPath=%~f0"
+:: Recovery command for known disable policies from older UltraOS releases.
 set "workerScript=%~dp0..\Scripts\defender.ps1"
 
 set "___args="%~f0" %*"
@@ -27,16 +22,14 @@ if not exist "%workerScript%" (
     exit /b 1
 )
 
-:: State marker - read by the install report and undo tooling
-reg add "HKLM\SOFTWARE\UltraOS\SetupOptions\%settingName%" /v state /t REG_DWORD /d %stateValue% /f > nul
-reg add "HKLM\SOFTWARE\UltraOS\SetupOptions\%settingName%" /v path /t REG_SZ /d "%scriptPath%" /f > nul
-
 powershell -NoP -EP Bypass -File "%workerScript%" -Enable
+set "result=%ERRORLEVEL%"
 
-if "%~1"=="/silent" exit /b
+if "%~1"=="/silent" exit /b %result%
 
 echo.
-echo Microsoft Defender policies have been cleared - real-time protection re-arms on the next service start or reboot.
+if not "%result%"=="0" echo Defender recovery was incomplete. Check Windows Security or contact your administrator.
+if "%result%"=="0" echo Known Defender overrides were cleared. Verify protection in Windows Security.
 echo Press any key to exit...
 pause > nul
-exit /b
+exit /b %result%

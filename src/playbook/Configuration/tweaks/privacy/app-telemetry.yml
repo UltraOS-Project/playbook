@@ -43,19 +43,6 @@ actions:
   - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\RemovalTools\MpGears', value: 'HeartbeatTrackingIndex', data: '0', type: REG_DWORD, option: '!preset-safe'}
   - !registryValue: {path: 'HKLM\SOFTWARE\Microsoft\RemovalTools\MpGears', value: 'SpyNetReportingLocation', data: '', type: REG_MULTI_SZ, option: '!preset-safe'}
 
-  # Defender sample submission: 2 = never send samples.
-  # TRADE-OFF (T1-f §7/§12.3): this weakens cloud protection - MAPS signature
-  # queries and Security Intelligence updates still flow (and are needed).
-  # Defender may be toggled off during install (wizard requirement), so tolerate
-  # failure; the UltraOS folder Defender toggle re-applies preferences.
-  # src: T1-f §7 (winutil WPFTweaksTelemetry) · matrix row 45 · preset: balanced
-  - !powerShell:
-    command: |
-      try { Set-MpPreference -SubmitSamplesConsent 2 -ErrorAction Stop } catch { }
-      exit 0
-    wait: true
-    option: '!preset-safe'
-
   # Smart App Control off. TRADE-OFF: SAC validation sends app-reputation data
   # to Microsoft; disabling removes that reputation-check layer (Atlas removes
   # it for this reason). On 26H2 SAC can be re-toggled in Settings without a

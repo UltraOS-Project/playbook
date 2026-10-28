@@ -1,6 +1,6 @@
 # Installing UltraOS
 
-This guide walks you through a complete UltraOS install: the prerequisites, the Defender pre-step (and why it exists), the AME Wizard pages one by one, and what to do after the progress bar finishes. It assumes a supported machine and no special prior knowledge. If something goes wrong along the way, [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) covers the known failure modes and their fixes.
+This guide walks you through a complete UltraOS install: the prerequisites, the AME Wizard pages, and what to do after the progress bar finishes. It assumes a supported machine and no special prior knowledge. If something goes wrong along the way, [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md) covers the known failure modes and their fixes.
 
 ## Prerequisites
 
@@ -10,34 +10,22 @@ Before you open anything, confirm your machine is ready. The wizard checks most 
 - **A stable internet connection.** The wizard needs it (browser downloads, playbook updates), and a connection that drops mid-install is the most avoidable failure there is.
 - **No pending Windows Updates.** Install all pending updates and reboot first. A pending update can reboot the machine mid-playbook, which is exactly as unpleasant as it sounds.
 - **Mains power (laptops).** Plug in the charger. A playbook that dies at 12% battery halfway through is no fun for anyone.
-- **No third-party antivirus.** Uninstall or fully disable any third-party AV before starting. The wizard detects active AV products and will not continue, and an AV that fights the playbook's registry writes makes the install unreliable.
+- **Keep security protection enabled.** Do not disable Defender or another antivirus to run UltraOS. If an alert appears, stop and investigate it; see [ANTIVIRUS.md](ANTIVIRUS.md).
 - **A backup of anything you care about.** UltraOS takes its own backups and offers a restore point, but you are always the last line of defense for your own data.
 
-## Step 0 — Toggling off Defender (the pre-step)
+## Before you continue
 
-This is the step people ask about most, so here it is in full, up front. UltraOS requires **Microsoft Defender to be toggled off before the install starts**. The wizard enforces this requirement (it is called `DefenderToggled` in the playbook metadata) and will not proceed until it is satisfied.
-
-**How to do it:**
-
-1. Open **Windows Security** (Start → type "Windows Security").
-2. Go to **Virus & threat protection**.
-3. Under *Virus & threat protection settings*, click **Manage settings**.
-4. Toggle **off** the primary protections: **Real-time protection**, **Cloud-delivered protection**, **Automatic sample submission**, and **Tamper Protection**.
-5. Leave this window open — after the install, Defender comes back on and you will want to verify.
-
-**Why this is required.** The playbook writes several hundred registry values, service configurations, and policy keys in a few minutes. With real-time protection active, Defender can intercept and quarantine parts of that work — and Tamper Protection specifically blocks writes to Defender's own policy keys, which the install needs to perform (even to *re-enable* Defender cleanly at the end). Toggling Defender off by hand, in the UI, is the one thing that cannot be automated away *by design* — Tamper Protection exists precisely so that no software (including us) can silently turn your antivirus off. That is also your guarantee that we turn it back on with your full knowledge.
-
-**What happens to Defender afterwards.** Unless you explicitly check the `opt-disable-defender` box during the wizard, **UltraOS re-enables Defender automatically at the very end of the install** — it is deliberately the last module that runs, after every other change is complete. You will see it in the install report, and the UltraOS folder contains a permanent on/off toggle pair for it afterwards. If Defender does not come back on by itself, see [Troubleshooting](TROUBLESHOOTING.md#defender-wont-re-enable) — the fix is a ten-second manual step involving Tamper Protection.
+Keep Microsoft Defender and any other antivirus enabled. UltraOS does not disable or reconfigure antivirus protection. If a security product blocks the download or reports a threat, do not click through, add an exclusion, or turn protection off; follow [ANTIVIRUS.md](ANTIVIRUS.md) and proceed only after the alert is resolved by the vendor or you have independently reviewed the exact flagged file and source.
 
 ## Step 1 — Get AME Wizard
 
-UltraOS is a playbook for **AME Wizard**, the open ecosystem playbook runner maintained by Ameliorated — the same wizard used by AtlasOS and ReviOS. Download it from the official site: **<https://ameliorated.io>** (the site now lives under amelabs.net; the old address redirects). Install it like any Windows application. If your browser or Defender flags the download, that is a false positive on a password-protected archive — the wizard's documentation explains how to allow it.
+UltraOS is a playbook for **AME Wizard**, the open ecosystem playbook runner maintained by Ameliorated — the same wizard used by AtlasOS and ReviOS. Download it from the official site: **<https://ameliorated.io>** (the site now lives under amelabs.net; the old address redirects). Install it like any Windows application. If your browser or Defender flags the download, stop and follow [ANTIVIRUS.md](ANTIVIRUS.md); do not assume the warning is a false positive.
 
-Next, download the UltraOS playbook (an `.apbx` file) from the [UltraOS releases](https://github.com/UltraOS-Project/playbook/releases). **Expect a possible SmartScreen or antivirus warning on the wizard, the download, or both** — this is a known false-positive pattern for the whole AME Wizard ecosystem (unsigned community tool + password-protected playbook container + system-modification heuristics). Do not guess; verify: check the file's SHA-256 against the `SHA256SUMS.txt` shipped in the same release (exact commands in [README-FIRST.txt](../src/release-zip/README-FIRST.txt)), and read [ANTIVIRUS.md](ANTIVIRUS.md) for the full explanation, the safe path through any warning, and how to file a false-positive report with Microsoft or your AV vendor. You do not need to extract or unzip anything — the wizard opens the file directly.
+Next, download the UltraOS playbook (an `.apbx` file) from the [UltraOS releases](https://github.com/UltraOS-Project/playbook/releases). An antivirus warning is not proof of malware, but it is also not safe to dismiss as a false positive. Verify the file's SHA-256 against the `SHA256SUMS.txt` shipped in the same release (exact commands in [README-FIRST.txt](../src/release-zip/README-FIRST.txt)), then follow [ANTIVIRUS.md](ANTIVIRUS.md) to investigate and report the exact detection. You do not need to extract or unzip anything — the wizard opens the file directly.
 
 ## Step 2 — Open the playbook and walk the wizard pages
 
-Launch AME Wizard, then drag the `.apbx` onto the window (or use *Select Playbook*). After the wizard reads your system, you will meet **seven pages of choices**. This is what each one means and what we recommend:
+Launch AME Wizard, then drag the `.apbx` onto the window (or use *Select Playbook*). After the wizard reads your system, you will meet several pages of choices. This is what each one means and what we recommend:
 
 ### Page 1 — Preset
 
@@ -53,19 +41,19 @@ Pick how updates are handled after install. **Automatic** (default, recommended)
 
 ### Page 4 — Extras (three screens of checkboxes)
 
-These are the opt-in extras, all unchecked by default. The first screen holds the advanced, trade-off-heavy options: **Remove Microsoft Edge**, **Keep Defender disabled** (not recommended), **Disable CPU mitigations** (older CPUs only), and **Disable Core Isolation/VBS** (breaks Valorant, WSL2, Docker — genuinely not recommended). The second screen holds the safer ones: **Maximum Performance power scheme** (now also sets the CPU's energy-performance preference to performance), **Disable Hibernation**, **Strip Recall/AI features**, and **Disable the Sticky Keys shortcut** (kills the Shift×5 pop-up trigger only — the accessibility feature stays available in Settings). The third screen is the **Tuning extras** page: **SysMain/Superfetch off** (only for fast NVMe + 16 GB RAM), **Windows Search indexing off** (file search gets slower), **memory compression off** (16 GB+ only), and **hardware-accelerated GPU scheduling off** (a try-it-if-you-see-stutter troubleshooting switch). None are required; the docs behind every option are linked from the wizard. Our advice: leave the first screen untouched unless you have read the [FAQ](FAQ.md) entries for the option you are considering, and only tick a Tuning extra if it matches your hardware.
+These are the opt-in extras, all unchecked by default. The first screen holds the advanced, trade-off-heavy options: **Remove Microsoft Edge**, **Disable CPU mitigations** (older CPUs only), and **Disable Core Isolation/VBS** (breaks Valorant, WSL2, Docker — genuinely not recommended). The second screen holds the safer ones: **Maximum Performance power scheme** (now also sets the CPU's energy-performance preference to performance), **Disable Hibernation**, **Strip Recall/AI features**, and **Disable the Sticky Keys shortcut** (kills the Shift×5 pop-up trigger only — the accessibility feature stays available in Settings). The third screen is the **Tuning extras** page: **SysMain/Superfetch off** (only for fast NVMe + 16 GB RAM), **Windows Search indexing off** (file search gets slower), **memory compression off** (16 GB+ only), and **hardware-accelerated GPU scheduling off** (a try-it-if-you-see-stutter troubleshooting switch). None are required; the docs behind every option are linked from the wizard. Our advice: leave the first screen untouched unless you have read the [FAQ](FAQ.md) entries for the option you are considering, and only tick a Tuning extra if it matches your hardware.
 
 ### Page 5 — Browser
 
 Pick the browser to install and set as default: **Brave** (default), **Firefox**, **LibreWolf**, or **None** to keep what you have. This page is driven by the wizard engine itself — it downloads and installs the browser and offers to make it your default (a Windows confirmation prompt appears; UCPD, the browser-default protection driver, insists that *you* confirm default-browser changes, and we respect that rather than fighting it). UltraOS does not modify your browser's settings or import anything.
 
-When you are happy with the choices, press **Start** and let it run — the wizard shows live progress per module, and the playbook's own status text tells you where it is. Typical duration is around eight minutes on a normal machine, plus a few more if you selected browser downloads. **Do not use the machine while it runs**, and let it finish; the final module re-enables Defender and generates your report. UltraOS schedules no automatic reboots — restart Windows once yourself afterwards so every change settles in.
+When you are happy with the choices, press **Start** and let it run — the wizard shows live progress per module, and the playbook's own status text tells you where it is. Typical duration is around eight minutes on a normal machine, plus a few more if you selected browser downloads. **Do not use the machine while it runs**, and let it finish; the final module generates your report. UltraOS schedules no automatic reboots — restart Windows once yourself afterwards so every change settles in.
 
 ## Step 3 — After the install: the UltraOS folder tour
 
 When the wizard finishes, restart Windows once (recommended) and you will find a new folder: **`C:\Windows\UltraOS\`**. This is your control panel for everything UltraOS did. Inside you will find:
 
-- **`1. Security\`** — toggle pairs for **Defender** (on/off), **CPU mitigations**, and **Core Isolation (VBS)**. Every toggle is a pair of `.cmd` files (enable/disable) that run elevated with one click.
+- **`1. Security\`** — recovery toggles for **Defender** (enable only), **CPU mitigations**, and **Core Isolation (VBS)**. Scripts run elevated when selected.
 - **`2. Updates\`** — switch Windows Update between **Automatic** and **Notify only** at any time.
 - **`3. Features\`** — flip **GameDVR** and **Recall/AI features** back on or off.
 - **`4. Tools\`** — **View Install Report**, **Uninstall UltraOS** (runs the full undo, then cleans up the folder), and a shortcut to your **Backups**.

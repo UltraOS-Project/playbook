@@ -24,10 +24,9 @@ actions:
   #   in every module file (~400 keys). For those, the authoritative per-key
   #   stock value is documented in each module file's own provenance comments;
   #   automating the full inverse is the v1.1 undo-playbook roadmap item.
-  # - NOT DUPLICATED: Defender re-enable logic lives in
-  #   tweaks/security/defender-reenable.yml (T3-h); power scheme changes
-  #   (hibernation/max-performance) are powercfg-level and documented as manual
-  #   commands in the module files, not registry-invertible here.
+  # - NOT DUPLICATED: power scheme changes (hibernation/max-performance) are
+  #   powercfg-level and documented as manual commands in the module files,
+  #   not registry-invertible here.
   # ============================================================================
 
   # ----------------------------------------------------------------------------

@@ -20,13 +20,9 @@ The failure modes below are the ones our compatibility research found across the
 
 **Fix (the sequence matters):** reinstall Edge, let Windows Update complete everything, then remove Edge again if you want to. In detail: (1) open `C:\Windows\UltraOS\5. Software\` and use the *Reinstall Microsoft Edge* pointer — or run `winget install Microsoft.Edge` — which restores the current Stable Edge; (2) open Settings → Windows Update and *Check for updates* until everything, including the stuck cumulative, installs cleanly; (3) reboot; (4) re-run UltraOS with the Edge-removal extra if you still want Edge gone. UltraOS's removal already sweeps the EdgeUpdater scheduled tasks and `edgeupdate`/`edgeupdatem` services that would otherwise re-spawn after reboot, which prevents one common recurrence loop. If you rely on Widgets, Outlook (new), or Xbox-app features, know that several of them are WebView-dependent — the *browser* removal keeps the WebView2 Runtime, but full functionality of those apps is not guaranteed on every build.
 
-## Defender won't re-enable
+## Defender is disabled after installation
 
-**Symptom:** the install finished but Windows Security still shows real-time protection (or Tamper Protection) off, even though you did not check *Keep Defender disabled*.
-
-**Cause:** Tamper Protection. If it is still off when UltraOS's re-enable module runs, Windows can restore the service and policies but the *tamper* state sometimes requires a human hand — and that is the point of the feature: no software, including a well-meaning playbook, is allowed to silently re-arm your defenses against your will.
-
-**Fix:** open **Windows Security → Virus & threat protection → Manage settings**, and toggle the protections back on by hand: real-time protection, cloud-delivered protection, automatic sample submission, and **Tamper Protection**. Then check the shield icon returns to green. Afterwards, the on/off pair in `C:\Windows\UltraOS\1. Security\` can manage Defender for you normally. If you had checked `opt-disable-defender` and have changed your mind, use that same folder toggle to bring Defender back (it runs the same re-enable path; you may still need the manual Tamper step the first time).
+UltraOS does not disable Defender. Open **Windows Security → Virus & threat protection → Manage settings** and turn on real-time protection, cloud-delivered protection, automatic sample submission, and Tamper Protection. If Windows reports that a setting is managed by an organization or will not turn on, do not try to bypass that policy; contact the device administrator or your antivirus provider. For settings left by an older UltraOS release, the `Defender (Enable) (default).cmd` recovery command in `C:\Windows\UltraOS\1. Security\` can clear known overrides, but it cannot override Tamper Protection or organization policy.
 
 ## Apps I removed came back after a feature update
 
@@ -48,7 +44,7 @@ The failure modes below are the ones our compatibility research found across the
 
 **Symptom:** `C:\Windows\UltraOS\install-report.html` does not exist after the wizard finished.
 
-**Fix:** (1) Make sure you are looking in `C:\Windows\UltraOS\` — not `C:\Program Files`, not your user folder; the folder shortcut on the desktop/Start points to the right place. (2) Check the UltraOS folder exists at all. If `C:\Windows\UltraOS\` itself is missing, the very first module (folder copy) failed — typically antivirus interference (did you skip the Defender pre-step or re-enable a third-party AV mid-install?) or a broken download. Re-run the playbook after fixing the cause. (3) If the folder exists but the report is absent, the report-generation step failed; you can regenerate it by re-running the playbook (safe — idempotent) or by filing an issue with the wizard log attached — logs live under `C:\ProgramData\AME\Logs\<newest>\`. (4) Everything the report would have told you is reconstructable from `Backups\` plus the wizard's own log.
+**Fix:** (1) Make sure you are looking in `C:\Windows\UltraOS\` — not `C:\Program Files`, not your user folder; the folder shortcut on the desktop/Start points to the right place. (2) Check the UltraOS folder exists at all. If `C:\Windows\UltraOS\` itself is missing, the first module (folder copy) failed — possible causes include a blocked or quarantined file, a broken download, or a permission error. Check your security product's alert history and the AME Wizard log; do not disable antivirus or add an exclusion to retry. (3) If the folder exists but the report is absent, the report-generation step failed; you can regenerate it by re-running the playbook after resolving the cause, or file an issue with the wizard log attached — logs live under `C:\ProgramData\AME\Logs\<newest>\`. (4) Everything the report would have told you is reconstructable from `Backups\` plus the wizard's own log.
 
 ## Something else broke
 

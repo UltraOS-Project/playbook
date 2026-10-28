@@ -10,8 +10,8 @@ UltraOS did not appear in a vacuum — it exists because two excellent projects 
 | **All builds supported** | 26100, 26200, 26300 (24H2/25H2/26H2) | 26100, 26200 (24H2/25H2) | 19044, 19045, 22631, 26100, 26200, 26300, 28000 (Win10 21H2/22H2 → 26H2) |
 | **License** | **GPL-3.0** | GPL-3.0 | **CC BY-SA 4.0** (playbook; companion tool separate) |
 | **Editions** | **Home + Pro** (registry/policy-only mechanisms) | Pro/Enterprise recommended; **Home excluded** | Home + Pro |
-| **Presets** | **Safe / Balanced / Extreme** depth tiers + 7 opt-in extras | No tiers — per-option toggles in the wizard + AtlasDesktop/Toolbox | No tiers — per-option toggles; Defender-disable is the *default* radio |
-| **Defender after install** | **On** (re-enabled automatically unless you opt out) | On by default (user picks at install); removal via DISM CAB when chosen | **Off by default** (disable is the default radio) |
+| **Presets** | **Safe / Balanced / Extreme** depth tiers + 11 opt-in extras | No tiers — per-option toggles in the wizard + AtlasDesktop/Toolbox | No tiers — per-option toggles; Defender-disable is the *default* radio |
+| **Defender after install** | **Not modified by UltraOS** | On by default (user picks at install); removal via DISM CAB when chosen | **Off by default** (disable is the default radio) |
 | **Install report** | ✅ `C:\Windows\UltraOS\install-report.html` + `.txt`, every run | ❌ None | ❌ None |
 | **Rollback** | ✅ Restore point (default on) + full pre-change backups + `Undo.cmd` + per-toggle on/off pairs | ❌ No undo story — actively deletes restore points and shadow copies; revert files exist only to clean up past-version mistakes | Partial — upgrade-time `revert.yml` + companion-tool uninstalls; full uninstall = repair-in-place via Windows Update |
 | **Post-install toggles** | `C:\Windows\UltraOS\` folder (Security / Updates / Features / Tools / Software) | AtlasDesktop folder + separate Atlas Toolbox GUI app | Revi "Revision Tool" GUI/CLI companion app |
@@ -27,7 +27,7 @@ UltraOS did not appear in a vacuum — it exists because two excellent projects 
 
 **Choose ReviOS if** you want Windows 10 support, like a full companion app managing tweaks, or want Defender off with the fewest prompts — their default is the opposite of ours, which is a legitimate philosophical difference we decline to copy. Their playbook is CC BY-SA 4.0, which matters if you plan to build on it: derivatives must carry the same license and attribution. We took ideas only (their browser flow via the engine's Software page, their honest warnings-in-UI style) and wrote all UltraOS code from scratch.
 
-**Choose UltraOS if** you are on 26H2 (or want one playbook for 24H2/25H2/26H2), want tiered presets with honest labels, want Home supported, want to read a report of every change, and want a real undo story. The trade-offs vs the others: no component-level CAB stripping in v1 (Defender is *disabled by policy and toggled*, not deleted — deliberate, for reversibility), and a younger project with a smaller community.
+**Choose UltraOS if** you are on 26H2 (or want one playbook for 24H2/25H2/26H2), want tiered presets with honest labels, want Home supported, want to read a report of every change, and want a real undo story. The trade-offs vs the others: no component-level CAB stripping in v1, Defender is left alone, and it is a younger project with a smaller community.
 
 ## Why the license matters more than it looks
 
