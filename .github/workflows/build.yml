@@ -1,34 +1,126 @@
 name: Build Playbook
 
-# UltraOS packaging CI - mirrors the local final-assembly pipeline:
+# UltraOS build and release CI - mirrors the local final-assembly pipeline:
 #   lint (Atlas-relaxed yamllint) -> icons (make-artifacts.py)
 #   -> structure validation (validate-playbook.py) -> .apbx (build-playbook.sh)
-#   -> dist/ artifact upload.
+#   -> dist/ artifact upload -> patch-versioned GitHub Release from main.
 # Spec: research/execution-performance-packaging.md §4.3 + 03-build-manifest.md (T3-l).
 
 on:
   push:
-    paths:
-      - 'src/**'
-      - 'scripts/**'
-      - '.github/workflows/build.yml'
+    branches:
+      - main
   pull_request:
-    paths:
-      - 'src/**'
-      - 'scripts/**'
-      - '.github/workflows/build.yml'
   workflow_dispatch:
 
 permissions:
   contents: read
 
+concurrency:
+  group: playbook-build-${{ github.ref }}
+  cancel-in-progress: false
+
 jobs:
   build:
     name: Validate and package (.apbx)
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      release_needed: ${{ steps.version.outputs.release_needed }}
+      source_sha: ${{ steps.version.outputs.source_sha }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event_name == 'push' && 'main' || github.ref }}
+          fetch-depth: 0
+
+      - name: Assign release version
+        id: version
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          REF_NAME: ${{ github.ref_name }}
+          EVENT_SHA: ${{ github.sha }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          import subprocess
+          from pathlib import Path
+
+          conf_path = Path("src/playbook/playbook.conf")
+          conf = conf_path.read_text(encoding="utf-8")
+          version_match = re.search(r"<Version>(\d+)\.(\d+)\.(\d+)</Version>", conf)
+          if not version_match:
+              raise SystemExit("ERROR: playbook.conf must contain a numeric x.y.z Version.")
+
+          current = tuple(map(int, version_match.groups()))
+          release = os.environ["EVENT_NAME"] == "push" and os.environ["REF_NAME"] == "main"
+          needed = release
+          version = current
+
+          if release:
+              subprocess.run(["git", "fetch", "--tags", "origin"], check=True)
+              tags = subprocess.check_output(
+                  ["git", "tag", "--list", "v[0-9]*", "--sort=-version:refname"],
+                  text=True,
+              ).splitlines()
+              latest_tag = tags[0] if tags else None
+
+              if latest_tag:
+                  tag_match = re.fullmatch(r"v(\d+)\.(\d+)\.(\d+)", latest_tag)
+                  if not tag_match:
+                      raise SystemExit(f"ERROR: latest release tag is not semantic versioned: {latest_tag}")
+
+                  tagged_version = tuple(map(int, tag_match.groups()))
+                  tagged_commit = subprocess.check_output(
+                      ["git", "rev-parse", latest_tag], text=True
+                  ).strip()
+                  event_sha = os.environ["EVENT_SHA"]
+                  is_already_released = subprocess.run(
+                      ["git", "merge-base", "--is-ancestor", event_sha, tagged_commit],
+                      check=False,
+                  ).returncode == 0
+
+                  if is_already_released:
+                      needed = False
+                      version = current
+                  elif current != tagged_version:
+                      raise SystemExit(
+                          f"ERROR: playbook version {'.'.join(map(str, current))} does not match "
+                          f"latest release {latest_tag}; reconcile the version before publishing."
+                      )
+
+              if needed:
+                  version = (current[0], current[1], current[2] + 1)
+                  old = ".".join(map(str, current))
+                  new = ".".join(map(str, version))
+                  updated, version_count = re.subn(
+                      rf"<Version>{re.escape(old)}</Version>",
+                      f"<Version>{new}</Version>",
+                      conf,
+                      count=1,
+                  )
+                  updated, title_count = re.subn(
+                      r"<Title>UltraOS v[^<]+</Title>",
+                      f"<Title>UltraOS v{new}</Title>",
+                      updated,
+                      count=1,
+                  )
+                  if version_count != 1 or title_count != 1:
+                      raise SystemExit("ERROR: could not update the playbook version and title metadata.")
+                  conf_path.write_text(updated, encoding="utf-8")
+
+          version_string = ".".join(map(str, version))
+          source_sha = subprocess.check_output(
+              ["git", "rev-parse", "HEAD"], text=True
+          ).strip()
+          with open(os.environ["GITHUB_OUTPUT"], "a", encoding="utf-8") as output:
+              output.write(f"version={version_string}\n")
+              output.write(f"release_needed={'true' if needed else 'false'}\n")
+              output.write(f"source_sha={source_sha}\n")
+          print(f"Playbook version: {version_string}; release needed: {needed}")
+          PY
 
       - name: Set up Python 3.12
         uses: actions/setup-python@v5
@@ -68,3 +160,75 @@ jobs:
           name: ultraos-playbook-dist
           path: dist/
           if-no-files-found: error
+
+  publish:
+    name: Publish versioned GitHub Release
+    needs: build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main' && needs.build.outputs.release_needed == 'true'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout validated source
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ needs.build.outputs.source_sha }}
+          fetch-depth: 0
+
+      - name: Download release package
+        uses: actions/download-artifact@v4
+        with:
+          name: ultraos-playbook-dist
+          path: dist/
+
+      - name: Commit version and tag release
+        env:
+          VERSION: ${{ needs.build.outputs.version }}
+        run: |
+          python3 - <<'PY'
+          import os
+          import re
+          from pathlib import Path
+
+          conf_path = Path("src/playbook/playbook.conf")
+          conf = conf_path.read_text(encoding="utf-8")
+          match = re.search(r"<Version>(\d+)\.(\d+)\.(\d+)</Version>", conf)
+          if not match:
+              raise SystemExit("ERROR: playbook.conf must contain a numeric x.y.z Version.")
+
+          current = tuple(map(int, match.groups()))
+          version = tuple(map(int, os.environ["VERSION"].split(".")))
+          if version != (current[0], current[1], current[2] + 1):
+              raise SystemExit("ERROR: source version changed after the validated release build.")
+
+          old = ".".join(map(str, current))
+          new = ".".join(map(str, version))
+          updated, version_count = re.subn(
+              rf"<Version>{re.escape(old)}</Version>",
+              f"<Version>{new}</Version>",
+              conf,
+              count=1,
+          )
+          updated, title_count = re.subn(
+              r"<Title>UltraOS v[^<]+</Title>",
+              f"<Title>UltraOS v{new}</Title>",
+              updated,
+              count=1,
+          )
+          if version_count != 1 or title_count != 1:
+              raise SystemExit("ERROR: could not update the playbook version and title metadata.")
+          conf_path.write_text(updated, encoding="utf-8")
+          PY
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add src/playbook/playbook.conf
+          git commit -m "chore: release v${VERSION}"
+          git tag "v${VERSION}"
+          git push origin HEAD:main
+          git push origin "v${VERSION}"
+
+      - name: Publish GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ needs.build.outputs.version }}
+        run: gh release create "v${VERSION}" dist/release/* --title "UltraOS v${VERSION}" --generate-notes

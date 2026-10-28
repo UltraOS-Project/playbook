@@ -23,6 +23,8 @@ python3 scripts/make-artifacts.py
 
 `scripts/build-playbook.sh` packages `src/playbook/` at the archive root into `dist/UltraOS-Playbook-v<version>.apbx` — a ZIP archive with the AME ecosystem's standard password, which the wizard extracts itself — verifies the archive round-trips, emits `SHA256SUMS.txt`, and assembles the release folder. The version is read from `src/playbook/playbook.conf`, so version bumps happen in exactly one place. Testing an install then means copying the `.apbx` to a Windows 11 24H2/25H2/26H2 machine (or VM) and opening it in AME Wizard — do test on a machine you can afford to restore.
 
+Every successful push to `main` runs validation and packaging, increments the patch version in `playbook.conf`, commits that version, tags it as `v<version>`, and publishes a GitHub Release with the `.apbx` and checksum. Pull requests and manually dispatched builds validate and upload an Actions artifact but do not publish a release. The repository must allow GitHub Actions to write contents, and `main` branch protection must permit the workflow to push its version commit and tag.
+
 ## Repository layout
 
 | Path | Contents |
